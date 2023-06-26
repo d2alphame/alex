@@ -5,8 +5,15 @@ use strict;
 use warnings;
 
 our @ISA = qw();
-
 our $VERSION = '0.01';
+
+
+
+my $lexer_factory = sub {
+
+};
+
+
 
 
 # Preloaded methods go here.

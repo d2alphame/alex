@@ -7,7 +7,9 @@
 *.pm.tdy
 *.bs
 
+# Files generated when `perl ./Makefile.PL` is run
 Makefile
+MYMETA.*
 
 # Devel::Cover
 cover_db/
