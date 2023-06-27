@@ -9,8 +9,9 @@ our $VERSION = '0.01';
 
 
 =pod
-$lexer_factory, here, is an anonymous subroutine which returns the lexer as a
-closure. 
+
+$lexer_factory, here, is an anonymous subroutine which is a factory for
+producing lexers. 
 
 =cut
 
@@ -23,10 +24,16 @@ my $lexer_factory = sub {
 
 
 
-
 =pod
 
-This is the C<new()> subroutine. Call it to get yourself a shiny new lexer 
+This is the C<new()> subroutine. Call it to get yourself a shiny new
+lexer
+
+=head1 Parameters
+
+=item C<$filename> Scalar (I<required>). Name of the file to lex
+=item C<$tokens> Array ref (I<required>). Array of Hash refs   
+=item C<$mismatch> Code ref (I<optional>). Run when there's a mismatch
 
 =cut
 
