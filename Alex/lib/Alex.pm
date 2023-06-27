@@ -8,11 +8,26 @@ our @ISA = qw();
 our $VERSION = '0.01';
 
 
+=pod
+$lexer_factory, here, is an anonymous subroutine which returns the lexer as a
+closure. 
+
+=cut
 
 my $lexer_factory = sub {
 
+  # Return the lexer as a closure.
+  return sub {
+
+  }
 };
 
+
+
+
+sub new {
+
+}
 
 
 
