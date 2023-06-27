@@ -15,7 +15,6 @@ closure.
 =cut
 
 my $lexer_factory = sub {
-
   # Return the lexer as a closure.
   return sub {
 
@@ -25,13 +24,18 @@ my $lexer_factory = sub {
 
 
 
+=pod
+
+This is the C<new()> subroutine. Call it to get yourself a shiny new lexer 
+
+=cut
+
 sub new {
 
 }
 
 
 
-# Preloaded methods go here.
 
 1;
 __END__
