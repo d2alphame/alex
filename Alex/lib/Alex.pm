@@ -16,6 +16,16 @@ producing lexers.
 =cut
 
 my $lexer_factory = sub {
+
+  my ($filename, $tokens, $mismatch) = @_;    # Fetch the parameters
+  my $previous = 0;                           # Previous token
+
+  # We provide this mismatch as default, in case this subroutine was
+  # called without the $mismatch parameter
+  my $_mismatch = sub {
+
+  };
+
   # Return the lexer as a closure.
   return sub {
 
@@ -35,9 +45,39 @@ lexer
 =item C<$tokens> Array ref (I<required>). Array of Hash refs   
 =item C<$mismatch> Code ref (I<optional>). Run when there's a mismatch
 
+=head1 Return
+Returns a closure which can be called to get a token
+
 =cut
 
 sub new {
+  # Go get a lexer with parameters passed to us
+  my $lexer = $lexer_factory->(@_);
+  my $tok;
+  my @buffer;             # Token buffer. Used for lookahead
+  my $k;
+
+  # Call this closure without parameter to get the next token
+  # Call it with a number to lookahead.
+  return sub {
+    
+    # If no parameter was passed, then get next token
+    unless(@_) {
+      # If there's anything in the buffer, pop it and return it
+      if(@buffer) {
+        $tok = pop @buffer;
+        return $tok;
+      }
+      else {
+        # If the buffer is empty, get the next token from the lexer
+        # and return it
+        $tok = $lexer->();
+        return $tok
+      }
+    }
+
+    
+  }
 
 }
 
