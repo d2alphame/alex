@@ -46,7 +46,8 @@ lexer
 =item C<$mismatch> Code ref (I<optional>). Run when there's a mismatch
 
 =head1 Return
-Returns a closure which can be called to get a token or to look ahead
+Returns a closure which can be called to get a token or to look ahead.
+The returned closure is actually a wrapper around the lexer itself
 
 =cut
 
@@ -62,12 +63,15 @@ sub new {
   # Call it without parameter to get the next token
   # Call it with a number to lookahead.
   return sub {
+
+    # For tracking the number of tokens in the lookahead buffer
+    my $len;
     
     # If no parameter was passed, then get next token
     unless(@_) {
       # If there's anything in the buffer, pop it and return it
       if(@buffer) {
-        $tok = pop @buffer;
+        $tok = shift @buffer;
         return $tok;
       }
       else {
@@ -79,8 +83,31 @@ sub new {
     }
 
     # Getting here means a parameter was passed into this closure.
-    $k = (@_);
+    $k = shift;
+    $len = scalar @buffer;  # Get the number of tokens in the buffer
     
+    # If there isn't enough tokens in the buffer to lookahead, then
+    # fill up the buffer with just enough tokens
+    until($len >= $k) {
+      # The parameter value 1, here, tells the lexer we're just trying
+      # to lookahead
+      my $t = $lex->(1);
+      # If the lexer returns a valid token, push it onto the buffer
+      if($t) {
+        push @buffer, $t
+        $len++  # Keep track of number of tokens on the buffer
+      }
+      else {
+        # The lexer is expected to return a false value if it couldn't
+        # return a token. For example, reaching the end of the file, or
+        # encountering an invalid token
+        return $t;
+      }
+
+      # Now that buffer has been filled, we con comfortably look ahead
+      $tok = $buffer[$k - 1];
+      return $tok;
+    }
 
 
   }
