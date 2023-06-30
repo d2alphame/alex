@@ -46,7 +46,7 @@ lexer
 =item C<$mismatch> Code ref (I<optional>). Run when there's a mismatch
 
 =head1 Return
-Returns a closure which can be called to get a token
+Returns a closure which can be called to get a token or to look ahead
 
 =cut
 
@@ -57,7 +57,9 @@ sub new {
   my @buffer;             # Token buffer. Used for lookahead
   my $k;
 
-  # Call this closure without parameter to get the next token
+  # Closure will be returned to the user. This acts as a wrapper for
+  # actual lexer
+  # Call it without parameter to get the next token
   # Call it with a number to lookahead.
   return sub {
     
@@ -76,12 +78,14 @@ sub new {
       }
     }
 
+    # Getting here means a parameter was passed into this closure.
+    $k = (@_);
     
+
+
   }
 
 }
-
-
 
 
 1;
