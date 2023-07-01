@@ -104,7 +104,7 @@ sub new {
         return $t;
       }
 
-      # Now that buffer has been filled, we con comfortably look ahead
+      # Now that buffer has been filled, we can comfortably look ahead
       $tok = $buffer[$k - 1];
       return $tok;
     }
