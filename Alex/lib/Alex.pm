@@ -3,6 +3,7 @@ package Alex;
 use 5.030000;
 use strict;
 use warnings;
+use Carp;
 
 our @ISA = qw();
 our $VERSION = '0.01';
@@ -33,15 +34,13 @@ Returns a lexer as a closure.
 
 The following should be taken note of when using this module
 
-=over
-
-=item The Lexer
+=head2 The Lexer
 
 The value passed to the lexer provides hints to it.
 Pass a value of 1 to hint that you're trying to lookahead
 Not passing any parameters hints that you want to get a token
 
-=item The C<$tokens> Parameter
+=head2 The C<$tokens> Parameter
 
 The $tokens parameter is an array ref where each element is a hash ref.
 Each of the hash ref has the following structure:
@@ -59,16 +58,51 @@ C<action> should return a true value to accept the match. This is
 usually the value of the token. It should return a false value to
 indicate that this is actually a mismatch.
 
-=item The C<$mismatch> Parameter
+Other items may optionally be added to the hash. The lexer does not do
+anything with them.
+
+=head2 The C<$mismatch> Parameter
 
 The C<$mismatch> parameter is a code ref. It is run whenever there is
 a mismatch or when C<action> returns a false value.  
+
+=head3 Parameters passed to C<$mismatch>
+
+C<$mismatch> is passed a hash with the following values
+
+=over
+
+=item C<filename>
+The name of the file where the mismatch happened
+
+=item C<lineno>
+The line number on which the mismatch happened
+
+=item C<position>
+The position within the line where the mismatch happened
+
+=item C<token>
+The actual character that could not be matched
+
+=item C<line>
+The line of text with the mismatch
 
 =back
 
 =cut
 
 my $lexer_factory = sub {
+
+  # We need at least 2 parameters. The $filename and the $tokens array
+  # ref
+  my $params_len = scalar @_;
+  if($params_len < 2) {
+    # Croak (and die) if there's 
+    croak "The lexer requires at least 2 parameters.\n";
+  }
+  elsif($params_len > 3) {
+    carp "WARNING: Too many parameters.\n";
+  }
 
   my ($filename, $tokens, $mismatch) = @_;    # Fetch the parameters
   my $previous = 0;                           # Previous token
@@ -105,6 +139,7 @@ The returned closure is a wrapper around the lexer itself
 =cut
 
 sub new {
+
   # Go get a lexer with parameters passed to us
   my $lexer = $lexer_factory->(@_);
   my $tok;
