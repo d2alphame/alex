@@ -56,9 +56,13 @@ The lexer matches C<regex> and if there is a match, C<action> is called.
 The C<action> is passed 2 parameters - the text or characters that
 matched the pattern, and the value of the last matched token.
 C<action> should return a true value to accept the match. This is
-usually the value of the token. It should return a false value to that
-this is actually a mismatch
+usually the value of the token. It should return a false value to
+indicate that this is actually a mismatch.
 
+=item The C<$mismatch> Parameter
+
+The C<$mismatch> parameter is a code ref. It is run whenever there is
+a mismatch or when C<action> returns a false value.  
 
 =back
 
