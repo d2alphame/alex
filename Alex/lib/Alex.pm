@@ -43,6 +43,19 @@ Not passing any parameters hints that you want to get a token
 
 =item The C<$tokens> Parameter
 
+The $tokens parameter is an array ref where each element is a hash ref.
+Each of the hash ref has the following structure:
+
+  {
+    regex => qr/pattern/,
+    token => scalar,
+    action => sub { ... }
+  }
+
+Both C<regex> and C<token> are required while C<action> is optional.
+
+
+
 =back
 
 =cut
