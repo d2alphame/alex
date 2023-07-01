@@ -48,12 +48,16 @@ Each of the hash ref has the following structure:
 
   {
     regex => qr/pattern/,
-    token => scalar,
     action => sub { ... }
   }
 
-Both C<regex> and C<token> are required while C<action> is optional.
-
+Both C<regex> and C<action> are required.
+The lexer matches C<regex> and if there is a match, C<action> is called.
+The C<action> is passed 2 parameters - the text or characters that
+matched the pattern, and the value of the last matched token.
+C<action> should return a true value to accept the match. This is
+usually the value of the token. It should return a false value to that
+this is actually a mismatch
 
 
 =back
