@@ -107,6 +107,22 @@ my $lexer_factory = sub {
   my ($filename, $tokens, $mismatch) = @_;    # Fetch the parameters
   my $previous = 0;                           # Previous token
 
+  # Check that $tokens is an array ref.
+  if(ref $toknes ne 'ARRAY') {
+    croak "The tokens parameter should be an array ref.\n"
+  }
+
+  # If the $mismatch parameter was passed in, check to ensure that it
+  # is a code ref
+  if($mismatch) {
+    if(ref $mismatch ne 'CODE') {
+      croak "The mismatch parameter should be a code ref.\n"
+    }
+  }
+
+
+
+
   # We provide this mismatch as default, in case this subroutine was
   # called without the $mismatch parameter
   my $_mismatch = sub {
