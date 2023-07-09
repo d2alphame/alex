@@ -119,15 +119,22 @@ my $lexer_factory = sub {
       croak "The mismatch parameter should be a code ref.\n"
     }
   }
+  else {
+    # We provide this mismatch as default, in case this subroutine was
+    # called without the $mismatch parameter
+    $mismatch = sub {
+      my %details = @_;
+      die <<~ "EOERROR";
+      Error in file $details{filename}
+      On line $details{lineno}, at position $details{position}
+      Unrecognized token $details{token}
+      $details{line}
+      EOERROR
+    }
+  }
 
-
-
-
-  # We provide this mismatch as default, in case this subroutine was
-  # called without the $mismatch parameter
-  my $_mismatch = sub {
-
-  };
+  
+  
 
   # Return the lexer as a closure.
   return sub {
