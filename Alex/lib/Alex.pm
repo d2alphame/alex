@@ -97,10 +97,11 @@ my $lexer_factory = sub {
   # ref
   my $params_len = scalar @_;
   if($params_len < 2) {
-    # Croak (and die) if there's 
+    # Croak (and die) if there's less than 2 parameters
     croak "The lexer requires at least 2 parameters.\n";
   }
   elsif($params_len > 3) {
+    # Issue a warning if there's more than 3 parameters
     carp "WARNING: Too many parameters.\n";
   }
 
@@ -108,7 +109,7 @@ my $lexer_factory = sub {
   my $previous = 0;                           # Previous token
 
   # Check that $tokens is an array ref.
-  if(ref $toknes ne 'ARRAY') {
+  if(ref $tokens ne 'ARRAY') {
     croak "The tokens parameter should be an array ref.\n"
   }
 
@@ -157,7 +158,7 @@ my $lexer_factory = sub {
     # Check if the regex has reached the end of a line and read the next
     # line if so.
     if(/\G$/gcx) {
-      $line = <$file>;
+      $line = <$file>;    # Read the next line from the file
 
       # If we can't read the next line, then we're at the end of the file
       return 0 unless(defined $line);
@@ -169,8 +170,43 @@ my $lexer_factory = sub {
       if(ref $_ ne 'HASH') {
         croak "Each token should be defined as a hash ref.\n";
       }
-      
+
+      # Die if there's no 'regex' key in a token's hash
+      unless($_->{regex}) {
+        croak "Missing or undefined 'regex' key in token's hash.\n";
+      }
+
+      # Die if there's no 'action' key in a token's hash
+      unless($_->{action}) {
+        croak "Missing or undefined 'action' key in token's hash.\n";
+      }
+
+      # Attempt to match tokens
+      if($line =~ / \G ($_->{regex}) /gcx) {
+        # If there's a match, first get its length
+        my $len = length $1;
+
+        # Then call the action with the parameters
+        my $tmp = $_->{action}($1, $len, $previous);
+        
+        # True value from the action means it's a valid match
+        if($tmp) {
+          
+          # If not trying to look ahead, then store the result
+          # as previous match. Remember that if this subroutine is
+          # called with a parameter, then the caller is trying to
+          # lookahead. Otherwise, there's need to keep track of previous
+          # matches
+          $previous = $tmp unless(@_);
+          return $tmp;
+        }
+
+        # A False value from the action means this should be taken as a
+        # mismatch
+      }
+
     }
+
   }
 };
 
