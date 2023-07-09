@@ -124,7 +124,7 @@ my $lexer_factory = sub {
     # called without the $mismatch parameter
     $mismatch = sub {
       my %details = @_;
-      die <<~ "EOERROR";
+      croak <<~ "EOERROR";
       Error in file $details{filename}
       On line $details{lineno}, at position $details{position}
       Unrecognized token $details{token}
@@ -133,15 +133,46 @@ my $lexer_factory = sub {
     }
   }
 
+  # Open the passed in filename parameter.
+  open(my $file,  '<', $filename)
+    or croak "Could not open $filename: $!\n";
   
+  # A wrapper for calling $mismatch by proxy. Doing this to follow the
+  # DRY principle.  
+  # my $mismatch_call_wrapper = sub {
+  #   my @params = @_;
+  #   my $mis = $mismatch->(@_);
+  #   return $mis if($mis);
+  #   
+  # };
+
+  my $line = <$file>;   # Read the first line from the file
   
+  # First line undefined means the file is empty
+  return 0 unless(defined $line);
 
   # Return the lexer as a closure.
   return sub {
 
+    # Check if the regex has reached the end of a line and read the next
+    # line if so.
+    if(/\G$/gcx) {
+      $line = <$file>;
+
+      # If we can't read the next line, then we're at the end of the file
+      return 0 unless(defined $line);
+    }
+
+    # Match tokens
+    for(@$tokens) {
+      # Each token should be represented as a hash ref
+      if(ref $_ ne 'HASH') {
+        croak "Each token should be defined as a hash ref.\n";
+      }
+      
+    }
   }
 };
-
 
 
 =pod
@@ -224,7 +255,6 @@ sub new {
   }
 
 }
-
 
 1;
 __END__
