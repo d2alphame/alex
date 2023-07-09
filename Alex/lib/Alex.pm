@@ -203,10 +203,28 @@ my $lexer_factory = sub {
 
         # A False value from the action means this should be taken as a
         # mismatch
+        my $mis = $mismatch->(
+          filename => $filename,
+          lineno => $.,
+          position => pos($line),
+          token => $1,
+          line => $line
+        );
+
+        return $mis;
       }
 
     }
 
+    # If we ever get here, then the array of tokens has been exhausted
+    # without a match
+    my $mis = $mismatch->(
+      filename => $filename,
+      lineno => $.,
+      position => pos($line),
+      token => $1,
+      line => $line
+    )
   }
 };
 
