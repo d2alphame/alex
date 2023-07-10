@@ -21,6 +21,7 @@ my $filename = generate_random_string(12);
 
 dies_ok { Alex::new() } 'Dies when no parameters are passed to new()';
 dies_ok { Alex::new($filename) } 'Dies when only one parameter is passed to new()';
+dies_ok { Alex::new()}
 done_testing;
 
 # Subroutine for generating a random string
