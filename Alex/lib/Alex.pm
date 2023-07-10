@@ -287,10 +287,10 @@ sub new {
     until($len >= $k) {
       # The parameter value 1, here, tells the lexer we're just trying
       # to lookahead
-      my $t = $lex->(1);
+      my $t = $lexer->(1);
       # If the lexer returns a valid token, push it onto the buffer
       if($t) {
-        push @buffer, $t
+        push @buffer, $t;
         $len++  # Keep track of number of tokens on the buffer
       }
       else {
