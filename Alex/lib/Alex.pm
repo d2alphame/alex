@@ -134,7 +134,7 @@ my $lexer_factory = sub {
   }
   else {
     # If the subroutine was called without the $mismatch parameter, assign
-    # the $_mismatch which has been defined.
+    # the default $_mismatch which has been defined.
     $mismatch = $_mismatch;
   }
 
@@ -191,22 +191,13 @@ my $lexer_factory = sub {
         my $len = length $1;
 
         # Then call the action with the parameters
-        my $tmp = $_->{action}($1, $len, $previous);
+        my $tmp = $_->{action}($1, $len);
         
         # True value from the action means it's a valid match
-        if($tmp) {
-          
-          # If not trying to look ahead, then store the result
-          # as previous match. Remember that if this subroutine is
-          # called with a parameter, then the caller is trying to
-          # lookahead. Otherwise, there's need to keep track of previous
-          # matches
-          $previous = $tmp unless(@_);
-          return $tmp;
-        }
+        return $tmp if($tmp);
 
         # A False value from the action means this should be taken as a
-        # mismatch
+        # mismatch. Note that undefined counts as false
         my $mis = $mismatch->(
           filename => $filename,
           lineno => $.,
@@ -215,7 +206,17 @@ my $lexer_factory = sub {
           line => $line
         );
 
-        return $mis;
+        return $mis if $mis;   # A True value from $mismatch means a valid token 
+
+        # If $mismatch returns with a false value, then call our default
+        # $_mismatch which would die by croaking
+        $_mismatch->(
+          filename => $filename,
+          lineno => $.,
+          position => pos($line),
+          token => $1,
+          line => $line
+        );
       }
 
     }
