@@ -113,6 +113,18 @@ my $lexer_factory = sub {
     croak "The tokens parameter should be an array ref.\n"
   }
 
+  # We provide this _mismatch as default, in case this subroutine was
+  # called without the $mismatch parameter
+  my $_mismatch = sub {
+    my %details = @_;
+    croak <<~ "EOERROR";
+    Error in file $details{filename}
+    On line $details{lineno}, at position $details{position}
+    Unrecognized token $details{token}
+    $details{line}
+    EOERROR
+  };
+
   # If the $mismatch parameter was passed in, check to ensure that it
   # is a code ref
   if($mismatch) {
@@ -121,17 +133,9 @@ my $lexer_factory = sub {
     }
   }
   else {
-    # We provide this mismatch as default, in case this subroutine was
-    # called without the $mismatch parameter
-    $mismatch = sub {
-      my %details = @_;
-      croak <<~ "EOERROR";
-      Error in file $details{filename}
-      On line $details{lineno}, at position $details{position}
-      Unrecognized token $details{token}
-      $details{line}
-      EOERROR
-    }
+    # If the subroutine was called without the $mismatch parameter, assign
+    # the $_mismatch which has been defined.
+    $mismatch = $_mismatch;
   }
 
   # Open the passed in filename parameter.
