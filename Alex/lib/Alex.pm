@@ -156,6 +156,12 @@ my $lexer_factory = sub {
   # First line undefined means the file is empty
   return 0 unless(defined $line);
 
+  # $prev_pos is used to track the value of pos() before $action is called. This
+  # is necessary because whenever $action returns with a false value, we need to
+  # reset pos() to the end of the last match manually and try other token
+  # regexes
+  my $prev_pos;
+
   # Return the lexer as a closure.
   return sub {
 
@@ -185,6 +191,8 @@ my $lexer_factory = sub {
         croak "Missing or undefined 'action' key in token's hash.\n";
       }
 
+      $prev_pos = pos($line); # Store the value of pos() before the match
+
       # Attempt to match tokens
       if($line =~ / \G ($_->{regex}) /gcx) {
         # If there's a match, first get its length
@@ -195,6 +203,11 @@ my $lexer_factory = sub {
         
         # True value from the action means it's a valid match
         return $tmp if($tmp);
+
+        # A false value from the action means this is a mismatch. Restore the
+        # saved value of pos and then go retry the next token.
+        pos($line) = $prev_pos;
+
       }
 
     }
@@ -208,6 +221,8 @@ my $lexer_factory = sub {
       token => $1,
       line => $line
     )
+
+
   }
 };
 
