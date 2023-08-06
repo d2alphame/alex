@@ -195,28 +195,6 @@ my $lexer_factory = sub {
         
         # True value from the action means it's a valid match
         return $tmp if($tmp);
-
-        # A False value from the action means this should be taken as a
-        # mismatch. Note that undefined counts as false
-        my $mis = $mismatch->(
-          filename => $filename,
-          lineno => $.,
-          position => pos($line),
-          token => $1,
-          line => $line
-        );
-
-        return $mis if $mis;   # A True value from $mismatch means a valid token 
-
-        # If $mismatch returns with a false value, then call our default
-        # $_mismatch which would die by croaking
-        $_mismatch->(
-          filename => $filename,
-          lineno => $.,
-          position => pos($line),
-          token => $1,
-          line => $line
-        );
       }
 
     }
