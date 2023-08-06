@@ -213,7 +213,7 @@ my $lexer_factory = sub {
     }
 
     # If we ever get here, then the array of tokens has been exhausted
-    # without a match
+    # without a match, so call $mismatch
     my $mis = $mismatch->(
       filename => $filename,
       lineno => $.,
@@ -222,6 +222,20 @@ my $lexer_factory = sub {
       line => $line
     )
 
+    # Mismatch is expected to `die`. If it doesn't, however, it is expected to
+    # return either a true value or a false value (undefined counts as false).
+    # If it returns a true value, then that value is returned from the lexer
+    # as a valid token. If it returns a false value instead, then we call our
+    # default $_mismatch and die.
+    return $mis if $mis;
+
+    $mis = $_mismatch->(
+      filename => $filename,
+      lineno => $.,
+      position => pos($line),
+      token => $1,
+      line => $line
+    );
 
   }
 };
