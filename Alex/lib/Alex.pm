@@ -220,7 +220,7 @@ my $lexer_factory = sub {
       position => pos($line),
       token => $1,
       line => $line
-    )
+    );
 
     # Mismatch is expected to `die`. If it doesn't, however, it is expected to
     # return either a true value or a false value (undefined counts as false).
