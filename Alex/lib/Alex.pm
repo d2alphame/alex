@@ -32,13 +32,10 @@ Returns a lexer as a closure.
 
 =head1 Remarks
 
-The following should be taken note of when using this module
-
-=head2 The Lexer
-
-The value passed to the lexer provides hints to it.
-Pass a value of 1 to hint that you're trying to lookahead
-Not passing any parameters hints that you want to get a token
+Whenever the Lexer is called for a token, one of 2 things could happen. The
+lexer could return a true value which would represent a successfully matched
+token or it could return a false value which means it has come to the end of the
+file.
 
 =head2 The C<$tokens> Parameter
 
@@ -247,11 +244,17 @@ This is the C<new()> subroutine. Call it to get yourself a shiny new
 lexer
 
 =head1 Parameters
+
 =over
+
 =item C<$filename> Scalar (I<required>). Name of the file to lex
+
 =item C<$tokens> Array ref (I<required>). Array of Hash refs   
+
 =item C<$mismatch> Code ref (I<optional>). Run when there's a mismatch
+
 =back
+
 =head1 Return
 Returns a closure which can be called to get a token or to look ahead.
 The returned closure is a wrapper around the lexer itself
