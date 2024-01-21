@@ -139,15 +139,6 @@ my $lexer_factory = sub {
   open(my $file,  '<', $filename)
     or croak "Could not open $filename: $!\n";
   
-  # A wrapper for calling $mismatch by proxy. Doing this to follow the
-  # DRY principle.  
-  # my $mismatch_call_wrapper = sub {
-  #   my @params = @_;
-  #   my $mis = $mismatch->(@_);
-  #   return $mis if($mis);
-  #   
-  # };
-
   my $line = <$file>;   # Read the first line from the file
   
   # First line undefined means the file is empty
@@ -201,10 +192,11 @@ my $lexer_factory = sub {
 
     }
 
-    $line =~ /\G(.)/gcx;
 
     # If we ever get here, then the array of tokens has been exhausted
-    # without a match, so call $mismatch
+    # without a match, get the offending character and call $mismatch
+    $line =~ /\G(.)/gcx;
+
     my $mis = $mismatch->(
       filename => $filename,
       lineno => $.,
@@ -291,17 +283,19 @@ sub new {
     # Getting here means a parameter was passed into this closure.
     $k = shift;
     $len = scalar @buffer;  # Get the number of tokens in the buffer
+
     
     # If there isn't enough tokens in the buffer to lookahead, then
     # fill up the buffer with just enough tokens
     until($len >= $k) {
-      # The parameter value 1, here, tells the lexer we're just trying
-      # to lookahead
-      my $t = $lexer->(1);
+
+      my $t = $lexer->();
+
       # If the lexer returns a valid token, push it onto the buffer
       if($t) {
         push @buffer, $t;
-        $len++  # Keep track of number of tokens on the buffer
+        $len++; # Keep track of number of tokens on the buffer
+        next;
       }
       else {
         # The lexer is expected to return a false value if it couldn't
@@ -309,13 +303,11 @@ sub new {
         # encountering an invalid token
         return $t;
       }
-
-      # Now that buffer has been filled, we can comfortably look ahead
-      $tok = $buffer[$k - 1];
-      return $tok;
     }
 
-
+    # Now that buffer has been filled, we can comfortably look ahead
+    $tok = $buffer[$k - 1];
+    return $tok;
   }
 
 }
