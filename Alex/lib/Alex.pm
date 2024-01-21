@@ -201,7 +201,7 @@ my $lexer_factory = sub {
 
     }
 
-
+    $line =~ /\G(.)/gcx;
 
     # If we ever get here, then the array of tokens has been exhausted
     # without a match, so call $mismatch
