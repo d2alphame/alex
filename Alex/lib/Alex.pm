@@ -117,7 +117,7 @@ my $lexer_factory = sub {
     croak <<~ "EOERROR";
     Error in file $details{filename}
     On line $details{lineno}, at position $details{position}
-    Unrecognized token $details{token}
+    Unrecognized token $details{char}
     $details{line}
     EOERROR
   };
@@ -151,7 +151,11 @@ my $lexer_factory = sub {
   my $line = <$file>;   # Read the first line from the file
   
   # First line undefined means the file is empty
-  return 0 unless(defined $line);
+  unless(defined $line) {
+    return sub {
+      return 0;
+    }
+  }
 
 
   # Return the lexer as a closure.
@@ -159,7 +163,7 @@ my $lexer_factory = sub {
 
     # Check if the regex has reached the end of a line and read the next
     # line if so.
-    if(/\G$/gcx) {
+    if($line =~ /\G$/gcx) {
       $line = <$file>;    # Read the next line from the file
 
       # If we can't read the next line, then we're at the end of the file
@@ -183,8 +187,6 @@ my $lexer_factory = sub {
         croak "Missing or undefined 'action' key in token's hash.\n";
       }
 
-      $prev_pos = pos($line); # Store the value of pos() before the match
-
       # Attempt to match tokens
       if($line =~ / \G ($_->{regex}) /gcx) {
         # If there's a match, first get its length
@@ -195,14 +197,11 @@ my $lexer_factory = sub {
         
         # True value from the action means it's a valid match
         return $tmp if($tmp);
-
-        # A false value from the action means this is a mismatch. Restore the
-        # saved value of pos and then go retry the next token.
-        pos($line) = $prev_pos;
-
       }
 
     }
+
+
 
     # If we ever get here, then the array of tokens has been exhausted
     # without a match, so call $mismatch
@@ -210,7 +209,7 @@ my $lexer_factory = sub {
       filename => $filename,
       lineno => $.,
       position => pos($line),
-      token => $1,
+      char => $1,
       line => $line
     );
 
@@ -225,7 +224,7 @@ my $lexer_factory = sub {
       filename => $filename,
       lineno => $.,
       position => pos($line),
-      token => $1,
+      char => $1,
       line => $line
     );
 
@@ -262,6 +261,7 @@ sub new {
   my $lexer = $lexer_factory->(@_);
   my $tok;
   my @buffer;             # Token buffer. Used for lookahead
+  my @back_buffer = ();
   my $k;
 
   # Closure will be returned to the user. This acts as a wrapper for
@@ -275,7 +275,7 @@ sub new {
     
     # If no parameter was passed, then get next token
     unless(@_) {
-      # If there's anything in the buffer, pop it and return it
+      # If there's anything in the buffer, then return the first token in the buffer
       if(@buffer) {
         $tok = shift @buffer;
         return $tok;
