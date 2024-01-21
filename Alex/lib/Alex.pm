@@ -153,11 +153,6 @@ my $lexer_factory = sub {
   # First line undefined means the file is empty
   return 0 unless(defined $line);
 
-  # $prev_pos is used to track the value of pos() before $action is called. This
-  # is necessary because whenever $action returns with a false value, we need to
-  # reset pos() to the end of the last match manually and try other token
-  # regexes
-  my $prev_pos;
 
   # Return the lexer as a closure.
   return sub {
