@@ -183,11 +183,27 @@ my $lexer_factory = sub {
         # If there's a match, first get its length
         my $len = length $1;
 
+        # Check if the token has extra validation steps that need to be taken.
+        # Run it if it's available and pass the match and its length as
+        # parameters
+        if($_->{validate}) {
+          my $valid = $_->{validate}($1, $len);
+          next unless $valid;
+        }
+
+        # Return a closure that wraps the token's action.
+        my $a = $_->{action};
+        return sub {
+          my $m = $1;           # The match
+          my $l = $len;         # Length of the match
+          $a->($m, $l);         # Call the token's action
+        }
+        
         # Then call the action with the parameters
-        my $tmp = $_->{action}($1, $len);
+        # my $tmp = $_->{action}($1, $len);
         
         # True value from the action means it's a valid match
-        return $tmp if($tmp);
+        # return $tmp if($tmp);
       }
 
     }
@@ -276,7 +292,8 @@ sub new {
         # If the buffer is empty, get the next token from the lexer
         # and return it
         $tok = $lexer->();
-        return $tok
+        my $stuff = $tok->();
+        return 1;
       }
     }
 
