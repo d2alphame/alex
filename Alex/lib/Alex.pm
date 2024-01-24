@@ -187,23 +187,25 @@ my $lexer_factory = sub {
         # Run it if it's available and pass the match and its length as
         # parameters
         if($_->{validate}) {
+
+          # This is needed so that pos($line) can be reset in case $validate()
+          # returns false.
+          my $prev = pos($line);
+          
           my $valid = $_->{validate}($1, $len);
-          next unless $valid;
+          unless($valid) { pos($line) =  $prev; next};
         }
 
-        # Return a closure that wraps the token's action.
+        # Return a closure that wraps the token's action and its value
         my $a = $_->{action};
+        my $v = $_->{value}; 
         return sub {
           my $m = $1;           # The match
           my $l = $len;         # Length of the match
           $a->($m, $l);         # Call the token's action
+          return $v;            # Return the value of the token
         }
-        
-        # Then call the action with the parameters
-        # my $tmp = $_->{action}($1, $len);
-        
-        # True value from the action means it's a valid match
-        # return $tmp if($tmp);
+
       }
 
     }
@@ -286,14 +288,12 @@ sub new {
       # If there's anything in the buffer, then return the first token in the buffer
       if(@buffer) {
         $tok = shift @buffer;
-        return $tok;
+        return $tok->();
       }
       else {
         # If the buffer is empty, get the next token from the lexer
         # and return it
-        $tok = $lexer->();
-        my $stuff = $tok->();
-        return 1;
+        return $lexer->()();
       }
     }
 
@@ -324,9 +324,8 @@ sub new {
 
     # Now that buffer has been filled, we can comfortably look ahead
     $tok = $buffer[$k - 1];
-    return $tok;
+    return $tok->();
   }
-
 }
 
 1;
