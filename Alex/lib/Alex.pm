@@ -43,17 +43,19 @@ The $tokens parameter is an array ref where each element is a hash ref.
 Each of the hash ref has the following structure:
 
   {
-    regex => qr/pattern/,
-    action => sub { ... }
+    pattern => qr/pattern/,
+    action => sub { ... },
+    value => $a_value
   }
 
-Both C<regex> and C<action> are required.
-The lexer matches C<regex> and if there is a match, C<action> is called.
+C<pattern>, C<action>, and C<value> are required.
+The lexer matches C<pattern> and if there is a match, C<action> is called.
+If C<action> returns a true value, then C<value> is returned as the value of the
+token.
 The C<action> is passed 2 parameters - the text or characters that
 matched the pattern, and the value of the last matched token.
-C<action> should return a true value to accept the match. This is
-usually the value of the token. It should return a false value to
-indicate that this is actually a mismatch.
+C<action> should return a true value to accept the match or a false value to
+disregard it as a failed match.
 
 Other items may optionally be added to the hash. The lexer does not do
 anything with them.
@@ -209,7 +211,6 @@ my $lexer_factory = sub {
       }
 
     }
-
 
     # If we ever get here, then the array of tokens has been exhausted
     # without a match, get the offending character and call $mismatch
