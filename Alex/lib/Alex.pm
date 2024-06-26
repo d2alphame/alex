@@ -278,12 +278,12 @@ sub new {
       # If there's anything in the buffer, then return the first token in the buffer
       if(@buffer) {
         $tok = shift @buffer;
-        return $tok->();
+        return $tok;
       }
       else {
         # If the buffer is empty, get the next token from the lexer
         # and return it
-        return $lexer->()();
+        return $lexer->();
       }
     }
 
@@ -314,7 +314,7 @@ sub new {
 
     # Now that buffer has been filled, we can comfortably look ahead
     $tok = $buffer[$k - 1];
-    return $tok->();
+    return $tok;
   }
 }
 
