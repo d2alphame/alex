@@ -63,7 +63,7 @@ anything with them.
 =head2 The C<$mismatch> Parameter
 
 The C<$mismatch> parameter is a code ref. It is run whenever there is
-a mismatch or when C<action> returns a false value.  
+a mismatch.  
 
 =head3 Parameters passed to C<$mismatch>
 
