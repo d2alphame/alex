@@ -48,12 +48,13 @@ Each of the hash ref has the following structure:
     value => $a_value
   }
 
-C<pattern>, C<action>, and C<value> are required.
-The lexer matches C<pattern> and if there is a match, C<action> is called.
+C<pattern> and C<value> are required but not C<action> .
+The lexer matches C<pattern> and if there is a match, C<action> is called (if
+present).
 If C<action> returns a true value, then C<value> is returned as the value of the
 token.
 The C<action> is passed 2 parameters - the text or characters that
-matched the pattern, and the value of the last matched token.
+matched the pattern, and the length of the match
 C<action> should return a true value to accept the match or a false value to
 disregard it as a failed match.
 
@@ -105,7 +106,6 @@ my $lexer_factory = sub {
   }
 
   my ($filename, $tokens, $mismatch) = @_;    # Fetch the parameters
-  my $previous = 0;                           # Previous token
 
   # Check that $tokens is an array ref.
   if(ref $tokens ne 'ARRAY') {
@@ -144,11 +144,7 @@ my $lexer_factory = sub {
   my $line = <$file>;   # Read the first line from the file
   
   # First line undefined means the file is empty
-  unless(defined $line) {
-    return sub {
-      return 0;
-    }
-  }
+  return 0 unless(defined $line);
 
 
   # Return the lexer as a closure.
@@ -170,43 +166,37 @@ my $lexer_factory = sub {
         croak "Each token should be defined as a hash ref.\n";
       }
 
-      # Die if there's no 'regex' key in a token's hash
-      unless($_->{regex}) {
-        croak "Missing or undefined 'regex' key in token's hash.\n";
+      # Die if there's no 'pattern' key in a token's hash
+      unless($_->{pattern}) {
+        croak "Missing or undefined 'pattern' key in token's hash.\n";
       }
 
-      # Die if there's no 'action' key in a token's hash
-      unless($_->{action}) {
-        croak "Missing or undefined 'action' key in token's hash.\n";
+      # Die if there's no 'value' key in a token's hash. NOte that this would
+      # also die of $_->{value} is 0 or a false value
+      unless($_->{value}) {
+        croak "Missing or undefined 'value' key in token's hash.\n";
       }
 
       # Attempt to match tokens
-      if($line =~ / \G ($_->{regex}) /gcx) {
+      if($line =~ / \G ($_->{pattern}) /gcx) {
         # If there's a match, first get its length
         my $len = length $1;
 
-        # Check if the token has extra validation steps that need to be taken.
-        # Run it if it's available and pass the match and its length as
-        # parameters
-        if($_->{validate}) {
-
-          # This is needed so that pos($line) can be reset in case $validate()
+        # Do the action if it's present
+        if($_->{action}) {
+          unless(ref $_->{action} eq 'CODE') {
+            croak "If the action of a token is present, it should be a CODE ref.\n";
+          }
+          # This is needed so that pos($line) can be reset in case $action ()
           # returns false.
           my $prev = pos($line);
-          
-          my $valid = $_->{validate}($1, $len);
-          unless($valid) { pos($line) =  $prev; next};
+          my $valid = $_->{action}($1, $len);
+
+          # Attempt next token if 'action' returns false
+          unless($valid) { pos($line) =  $prev; next };
         }
 
-        # Return a closure that wraps the token's action and its value
-        my $a = $_->{action};
-        my $v = $_->{value}; 
-        return sub {
-          my $m = $1;           # The match
-          my $l = $len;         # Length of the match
-          $a->($m, $l);         # Call the token's action
-          return $v;            # Return the value of the token
-        }
+        return $_->{value};         # Return the value of the token
 
       }
 
@@ -272,7 +262,6 @@ sub new {
   my $lexer = $lexer_factory->(@_);
   my $tok;
   my @buffer;             # Token buffer. Used for lookahead
-  my @back_buffer = ();
   my $k;
 
   # Closure will be returned to the user. This acts as a wrapper for
