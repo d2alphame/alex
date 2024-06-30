@@ -10,6 +10,7 @@ use warnings;
 
 use Test::More;
 use Test::Exception;
+use Test::Warnings;
 BEGIN { use_ok('Alex') };
 
 #########################
@@ -17,11 +18,12 @@ BEGIN { use_ok('Alex') };
 # Insert your test code below, the Test::More module is use()ed here so read
 # its man page ( perldoc Test::More ) for help writing this test script.
 
+
 my $filename = generate_random_string(12);
 
 dies_ok { Alex::new() } 'Dies when no parameters are passed to new()';
 dies_ok { Alex::new($filename) } 'Dies when only one parameter is passed to new()';
-dies_ok { Alex::new()}
+dies_ok { Alex::new() } 'Dies when ';
 done_testing;
 
 # Subroutine for generating a random string
