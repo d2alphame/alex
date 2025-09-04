@@ -137,15 +137,15 @@ my $lexer_factory = sub {
     $mismatch = $_mismatch;
   }
 
+  # Check the size of the file. If the file is empty, then wer're done. There's
+  # nothing to do.
+  return 0 unless(-s $filename);
+
   # Open the passed in filename parameter.
   open(my $file,  '<', $filename)
     or croak "Could not open $filename: $!\n";
   
   my $line = <$file>;   # Read the first line from the file
-  
-  # First line undefined means the file is empty
-  return 0 unless(defined $line);
-
 
   # Return the lexer as a closure.
   return sub {
