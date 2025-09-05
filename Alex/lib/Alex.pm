@@ -153,6 +153,7 @@ my $lexer_factory = sub {
     # Check if the regex has reached the end of a line and read the next
     # line if so.
     if($line =~ /\G$/gcx) {
+      return 0 if eof($file);
       $line = <$file>;    # Read the next line from the file
 
       # If we can't read the next line, then we're at the end of the file
