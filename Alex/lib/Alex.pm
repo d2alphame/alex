@@ -43,17 +43,20 @@ The $tokens parameter is an array ref where each element is a hash ref.
 Each of the hash ref has the following structure:
 
   {
-    regex => qr/pattern/,
-    action => sub { ... }
+    pattern => qr/pattern/,
+    action => sub { ... },
+    value => $a_value
   }
 
-Both C<regex> and C<action> are required.
-The lexer matches C<regex> and if there is a match, C<action> is called.
+C<pattern> and C<value> are required but not C<action> .
+The lexer matches C<pattern> and if there is a match, C<action> is called (if
+present).
+If C<action> returns a true value, then C<value> is returned as the value of the
+token.
 The C<action> is passed 2 parameters - the text or characters that
-matched the pattern, and the value of the last matched token.
-C<action> should return a true value to accept the match. This is
-usually the value of the token. It should return a false value to
-indicate that this is actually a mismatch.
+matched the pattern, and the length of the match
+C<action> should return a true value to accept the match or a false value to
+disregard it as a failed match.
 
 Other items may optionally be added to the hash. The lexer does not do
 anything with them.
@@ -61,7 +64,7 @@ anything with them.
 =head2 The C<$mismatch> Parameter
 
 The C<$mismatch> parameter is a code ref. It is run whenever there is
-a mismatch or when C<action> returns a false value.  
+a mismatch.  
 
 =head3 Parameters passed to C<$mismatch>
 
@@ -103,7 +106,6 @@ my $lexer_factory = sub {
   }
 
   my ($filename, $tokens, $mismatch) = @_;    # Fetch the parameters
-  my $previous = 0;                           # Previous token
 
   # Check that $tokens is an array ref.
   if(ref $tokens ne 'ARRAY') {
@@ -135,19 +137,15 @@ my $lexer_factory = sub {
     $mismatch = $_mismatch;
   }
 
+  # Check the size of the file. If the file is empty, then wer're done. There's
+  # nothing to do.
+  return 0 unless(-s $filename);
+
   # Open the passed in filename parameter.
   open(my $file,  '<', $filename)
     or croak "Could not open $filename: $!\n";
   
   my $line = <$file>;   # Read the first line from the file
-  
-  # First line undefined means the file is empty
-  unless(defined $line) {
-    return sub {
-      return 0;
-    }
-  }
-
 
   # Return the lexer as a closure.
   return sub {
@@ -155,6 +153,7 @@ my $lexer_factory = sub {
     # Check if the regex has reached the end of a line and read the next
     # line if so.
     if($line =~ /\G$/gcx) {
+      return 0 if eof($file);
       $line = <$file>;    # Read the next line from the file
 
       # If we can't read the next line, then we're at the end of the file
@@ -168,30 +167,41 @@ my $lexer_factory = sub {
         croak "Each token should be defined as a hash ref.\n";
       }
 
-      # Die if there's no 'regex' key in a token's hash
-      unless($_->{regex}) {
-        croak "Missing or undefined 'regex' key in token's hash.\n";
+      # Die if there's no 'pattern' key in a token's hash
+      unless($_->{pattern}) {
+        croak "Missing or undefined 'pattern' key in token's hash.\n";
       }
 
-      # Die if there's no 'action' key in a token's hash
-      unless($_->{action}) {
-        croak "Missing or undefined 'action' key in token's hash.\n";
+      # Die if there's no 'value' key in a token's hash. NOte that this would
+      # also die of $_->{value} is 0 or a false value
+      unless($_->{value}) {
+        croak "Missing or undefined 'value' key in token's hash.\n";
       }
 
       # Attempt to match tokens
-      if($line =~ / \G ($_->{regex}) /gcx) {
+      if($line =~ / \G ($_->{pattern}) /gcx) {
         # If there's a match, first get its length
         my $len = length $1;
 
-        # Then call the action with the parameters
-        my $tmp = $_->{action}($1, $len);
-        
-        # True value from the action means it's a valid match
-        return $tmp if($tmp);
+        # Do the action if it's present
+        if($_->{action}) {
+          unless(ref $_->{action} eq 'CODE') {
+            croak "If the action of a token is present, it should be a CODE ref.\n";
+          }
+          # This is needed so that pos($line) can be reset in case $action ()
+          # returns false.
+          my $prev = pos($line);
+          my $valid = $_->{action}($1, $len);
+
+          # Attempt next token if 'action' returns false
+          unless($valid) { pos($line) =  $prev; next };
+        }
+
+        return $_->{value};         # Return the value of the token
+
       }
 
     }
-
 
     # If we ever get here, then the array of tokens has been exhausted
     # without a match, get the offending character and call $mismatch
@@ -253,7 +263,6 @@ sub new {
   my $lexer = $lexer_factory->(@_);
   my $tok;
   my @buffer;             # Token buffer. Used for lookahead
-  my @back_buffer = ();
   my $k;
 
   # Closure will be returned to the user. This acts as a wrapper for
@@ -275,8 +284,7 @@ sub new {
       else {
         # If the buffer is empty, get the next token from the lexer
         # and return it
-        $tok = $lexer->();
-        return $tok
+        return $lexer->();
       }
     }
 
@@ -309,7 +317,6 @@ sub new {
     $tok = $buffer[$k - 1];
     return $tok;
   }
-
 }
 
 1;
