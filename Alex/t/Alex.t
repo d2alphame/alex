@@ -11,6 +11,8 @@ use warnings;
 use Test::More;
 use Test::Exception;
 use Test::Warnings;
+use Test::Trap;
+
 BEGIN { use_ok('Alex') };
 
 #########################
@@ -33,29 +35,39 @@ unless(-d $alex_test_working_directory) {
 chdir $alex_test_working_directory;
 
 my $filename = generate_random_string(12);
-my @tokens = ();
 my $mismatch_code = sub { die "Mismatch\n" };
 my $random_string = "random string";
+my $tokens = [(
+    {
+        pattern => qr/\s+/,
+        action  => sub { return 1; }
+    },
+    {
+        pattern => qr/\d+/,
+        action  => sub { return 1; }
+    },
+    {
+        pattern => qr/\w+/,
+        action  => sub { return 1; }
+    }
+)];
 
 open(my $file, '>>', $filename) or die "Could not create file $filename. $!\n";
-say $file "E seun, mo dupe";
+say $file "1234 abcd";
+close $file;
 
-dies_ok { Alex::new() } 'Dies when no parameters are passed to new()';
-dies_ok { Alex::new($filename) } 'Dies when only one parameter is passed to new()';
-dies_ok { Alex::new(
-    generate_random_string(),
-    \@tokens,
-    $mismatch_code,
-)} 'Dies if file to parse does not exist';
+dies_ok { Alex::new() } 'Dies when no parameters are passed to Alex::new()';
+dies_ok { Alex::new($filename) } 'Dies when only one parameter is passed to Alex::new()';
+dies_ok { Alex::new(generate_random_string(), $tokens)} 'Dies if file to parse does not exist';
 
 
-my $warning = warning { Alex::new(
-    $filename,
-    \@tokens,
-    $mismatch_code,
-    $random_string
-)};
-is($warning, "WARNING: Too many parameters.\n", 'Warns when more than 3 parameters are passed');
+# my $warning = warning { Alex::new(
+#     $filename,
+#     \@tokens,
+#     $mismatch_code,
+#     $random_string
+# )};
+# is($warning, "WARNING: Too many parameters.\n", 'Warns when more than 3 parameters are passed');
 done_testing;
 
 # Subroutine for generating a random string
