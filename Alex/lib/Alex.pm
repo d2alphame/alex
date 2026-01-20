@@ -370,11 +370,11 @@ If you have a web site set up for your module, mention it here.
 
 =head1 AUTHOR
 
-A. U. Thor, E<lt>deji@E<gt>
+Deji Adegbite, E<lt>deji@E<gt>
 
 =head1 COPYRIGHT AND LICENSE
 
-Copyright (C) 2023 by A. U. Thor
+Copyright (C) 2023 by Deji Adegbite
 
 This library is free software; you can redistribute it and/or modify
 it under the same terms as Perl itself, either Perl version 5.30.0 or,
