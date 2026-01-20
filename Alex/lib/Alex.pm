@@ -108,7 +108,7 @@ my $lexer_factory = sub {
   my ($filename, $tokens, $mismatch) = @_;    # Fetch the parameters
 
   croak "The file $filename does not exist.\n" unless(-e $filename);
-  
+
   # Check that $tokens is an array ref.
   if(ref $tokens ne 'ARRAY') {
     croak "The tokens parameter should be an array ref.\n"
@@ -189,7 +189,11 @@ my $lexer_factory = sub {
 
       # Attempt to match tokens
       if($line =~ / \G ($_->{pattern}) /gcx) {
-        # If there's a match, first get its length
+
+        # Get the text that matched
+        my $text = $1;
+
+        # Get the length of the matched text
         my $len = length $1;
 
         # Do the action if it's present
@@ -206,7 +210,10 @@ my $lexer_factory = sub {
           unless($valid) { pos($line) =  $prev; next };
         }
 
-        return $_->{value};         # Return the value of the token
+        # return $_->{value};         # Return the value of the token
+
+        # Return and array ref with the value and the text that matched
+        return [$_->{value}, $1];
 
       }
 

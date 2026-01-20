@@ -10,8 +10,8 @@ use warnings;
 
 use Test::More;
 use Test::Exception;
-use Test::Warnings;
-use Test::Trap;
+use Test::Warnings ':all';
+#use Test::Trap;
 
 BEGIN { use_ok('Alex') };
 
@@ -59,15 +59,21 @@ close $file;
 dies_ok { Alex::new() } 'Dies when no parameters are passed to Alex::new()';
 dies_ok { Alex::new($filename) } 'Dies when only one parameter is passed to Alex::new()';
 dies_ok { Alex::new(generate_random_string(), $tokens)} 'Dies if file to parse does not exist';
+is(warning(sub { warn "You've been warned!\n" }), "You've been warned!\n", "Warns correctly");
+my $warning = warning (sub {Alex::new($filename, $tokens, $mismatch_code, generate_random_string())});
+is($warning, "WARNING: Too many parameters.\n");
 
+# is(warning (sub {Alex::new $filename, $tokens, $mismatch_code, generate_random_string()}),
+#    "WARNING: Too many parameters.\n", 'Warns when more than 3 parameters are passed to Alex::new');
 
 # my $warning = warning { Alex::new(
 #     $filename,
-#     \@tokens,
+#     $tokens,
 #     $mismatch_code,
 #     $random_string
 # )};
-# is($warning, "WARNING: Too many parameters.\n", 'Warns when more than 3 parameters are passed');
+#is($warning, "WARNING: Too many parameters.\n", 'Warns when more than 3 parameters are passed');
+
 done_testing;
 
 # Subroutine for generating a random string
