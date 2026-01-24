@@ -91,6 +91,7 @@ The line of text with the mismatch
 
 =cut
 
+
 my $lexer_factory = sub {
 
   # We need at least 2 parameters. The $filename and the $tokens array
@@ -210,11 +211,7 @@ my $lexer_factory = sub {
           unless($valid) { pos($line) =  $prev; next };
         }
 
-        # return $_->{value};         # Return the value of the token
-
-        # Return and array ref with the value and the text that matched
-        return [$_->{value}, $1];
-
+        return $_->{value};         # Return the value of the token
       }
 
     }
