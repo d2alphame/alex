@@ -247,6 +247,35 @@ my $lexer_factory = sub {
 };
 
 
+
+=pod
+
+This is the C<create> subroutine. It returns a lexer object. The lexer object
+provides the methods C<next_token> and C<peek_token>. It is expected to be
+called using the arrow object notation.
+
+=cut
+
+sub create {
+  my ($class, $filename, $tokens, $mismatch) = @_;
+
+  # Do sanity checks here.
+
+
+  return bless sub {
+    my $param = shift;
+    if($param eq 'buffer') {
+      # Return the buffer
+    }
+  }, $class;
+}
+
+
+
+
+
+
+
 =pod
 
 This is the C<new()> subroutine. Call it to get yourself a shiny new
