@@ -257,16 +257,39 @@ called using the arrow object notation.
 =cut
 
 sub create {
-  my ($class, $filename, $tokens, $mismatch) = @_;
+  my $class = shift;
 
   # Do sanity checks here.
+  
+  # Ensure that at least 2 parameters were passed, warn if more than 3
+  if(scalar @a_ < 2) { 
+    croak "At least two arguments are required - filename and tokens array ref.\n";
+  }
+  elsif(scalar @_ > 3) {
+    carp "Warning: Too many parameters.\n";
+  }
+
+  my ($filename, $tokens, $mismatch) = @_;
+
+  # Ensure that $filename is a simple scalar
+  if(ref $filename) { 
+    croak "The filename should be a simple scalar containing the name of the file.\n" }
+
+  # Ensure that the file exists and is a regular file
+  unless(-e $filename && -f $filename) {
+    croak "The file $filename does not exist or is not a regular file.\n";
+  }
+  
+  # Ensure that $tokens is an array ref
+  croak "The \$tokens parameter should be an array ref.\n" if(ref $tokens ne 'ARRAY');
+
+  open my $file, '<', $filename
+    or croak "Could not open file $filename: $!\n";
+
 
 
   return bless sub {
-    my $param = shift;
-    if($param eq 'buffer') {
-      # Return the buffer
-    }
+    state @buffer;    # Token buffer for lookahead
   }, $class;
 }
 
