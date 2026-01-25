@@ -274,7 +274,7 @@ sub create {
   # Do sanity checks here.
   
   # Ensure that at least 2 parameters were passed, warn if more than 3
-  if(scalar @a_ < 2) { 
+  if(scalar @_ < 2) { 
     croak "At least two arguments are required - filename and tokens array ref.\n";
   }
   elsif(scalar @_ > 3) {
