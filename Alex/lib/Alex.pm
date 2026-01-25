@@ -259,6 +259,18 @@ called using the arrow object notation.
 sub create {
   my $class = shift;
 
+  # Insert some useful subs into the caller's package
+  {
+    no strict 'refs';
+    my $package = caller;
+    my $i = 1;
+    for(@$tokens) {
+      *{"$package" . "::lx_" . $_->{type}} = sub { return $i; };
+      $_->{value} = $i;
+      $i++;
+    }
+  }
+
   # Do sanity checks here.
   
   # Ensure that at least 2 parameters were passed, warn if more than 3
