@@ -300,16 +300,30 @@ sub create {
     };
   }
 
-
-
-
+  croak "The parameter filename must be defined" unless(defined $filename);
   open my $file, '<', $filename
     or croak "Could not open file $filename: $!\n";
 
-
+  my $line;
+  $line = <$file>;   # Read the first line from the file
+  return 0 unless(defined $line);  # First line being undefined means empty file
 
   return bless sub {
     state @buffer;    # Token buffer for lookahead
+
+    # Match tokens
+    for(@$tokens) {
+      # If we've reached the end of the line, read the next line
+      if($line =~ /\G$/gc) {
+        $line = <$file>;
+        return 0 unless(defined $line);  # End of file
+      }
+      if($line =~ /\G($_->{pattern})/gc) {
+        my $text = $1;
+        my $len = length $1;
+        return [$_->{type}, $text]
+      }
+    }
   }, $class;
 }
 
