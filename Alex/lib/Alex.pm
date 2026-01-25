@@ -281,7 +281,27 @@ sub create {
   }
   
   # Ensure that $tokens is an array ref
-  croak "The \$tokens parameter should be an array ref.\n" if(ref $tokens ne 'ARRAY');
+  croak "The tokens parameter should be an array ref.\n" if(ref $tokens ne 'ARRAY');
+
+  # Ensure that $mismatch is a code ref if it was passed
+  if(defined $mismatch) {
+    croak "The mismatch parameter should be a code ref.\n" if(ref $mismatch ne 'CODE');
+  }
+  else {
+    # Provide a default mismatch handler
+    $mismatch = sub {
+      my %details = @_;
+      croak <<~ "EOERROR";
+      Error in file $details{filename}
+      On line $details{lineno}, at position $details{position}
+      Unrecognized token $details{char}
+      $details{line}
+      EOERROR
+    };
+  }
+
+
+
 
   open my $file, '<', $filename
     or croak "Could not open file $filename: $!\n";
