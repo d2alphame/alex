@@ -259,18 +259,6 @@ called using the arrow object notation.
 sub create {
   my $class = shift;
 
-  # Insert some useful subs into the caller's package
-  {
-    no strict 'refs';
-    my $package = caller;
-    my $i = 1;
-    for(@$tokens) {
-      *{"$package" . "::lx_" . $_->{type}} = sub { return $i; };
-      $_->{value} = $i;
-      $i++;
-    }
-  }
-
   # Do sanity checks here.
   
   # Ensure that at least 2 parameters were passed, warn if more than 3
@@ -323,19 +311,47 @@ sub create {
   return bless sub {
     state @buffer;    # Token buffer for lookahead
 
+    my $param = shift;  # Get the parameter passed to this closure, if any
+    return \@buffer if(defined $param && $param == 1);
+
     # Match tokens
     for(@$tokens) {
+      # Do per-token sanity checks
+      croak "Each token should be defined as a hash ref.\n" unless(ref $_ eq 'HASH');
+      unless(exists $_->{pattern} && defined $_->{pattern}) {
+        croak "Missing or undefined 'pattern' key in token's hash.\n";
+      }
+      unless(exists $_->{type} && defined $_->{type}) {
+        croak "Missing or undefined 'type' key in token's hash.\n";
+      }
       # If we've reached the end of the line, read the next line
       if($line =~ /\G$/gc) {
         $line = <$file>;
         return 0 unless(defined $line);  # End of file
       }
       if($line =~ /\G($_->{pattern})/gc) {
+        if($_->{action}) {
+          unless(ref $_->{action} eq 'CODE') {
+            croak "If the action of a token is present, it should be a CODE ref.\n";
+          }
+          my $prev = pos($line);
+          my $valid = $_->{action}($1, length $1);
+          unless($valid) { pos($line) = $prev; next };
+        }
         my $text = $1;
         my $len = length $1;
         return [$_->{type}, $text]
       }
     }
+    # If we get here, then the array of tokens has been exhausted without a match
+    $line =~ /\G(.)/gcx;
+    $mismatch->(
+      filename => $filename,
+      lineno => $.,
+      position => pos($line),
+      char => $1,
+      line => $line
+    );
   }, $class;
 }
 
