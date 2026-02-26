@@ -358,6 +358,12 @@ sub create {
 
 
 
+# This returns 1 of various types of tokens that the user specifies.
+sub next_token {
+
+}
+
+
 
 
 
