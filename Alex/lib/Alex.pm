@@ -358,9 +358,36 @@ sub create {
 
 
 
-# This returns 1 of various types of tokens that the user specifies.
 sub next_token {
+  my $lexer = shift;
+  my $token_ref;
+  # Get the array ref of the lexer's token buffer.
+  my $buffer = $lexer->(1);
+  if(scalar @$buffer) { $token_ref = shift @$buffer }
+  else                { $token_ref = $lexer->();
+                        return 0 unless $token_ref  }
+  for(@_){
+    return $token_ref if $token_ref->[0] == $_;
+  }
+  # If we get here, then it means the next token is not any of our expected tokens
+}
 
+sub peek_token {
+  my $lexer = shift;
+  my $k = shift;
+  my $buffer = $lexer->(1);
+  my $diff = $k - (scalar @$buffer);
+  if($diff > 0) {
+    for(1 .. $diff) {
+      push @$buffer, $lexer->();
+    }
+  }
+  my $token_ref = $buffer->[$k - 1];
+  for(@_){
+    return $token_ref if $token_ref->[0] == $_;
+  }
+  # If we get here, then it means the next token is not a token we're expecting to
+  # get when we look ahead
 }
 
 
