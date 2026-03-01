@@ -250,9 +250,28 @@ my $lexer_factory = sub {
 
 =pod
 
-TODO: Adjust the C<create()> subroutine to use a list which is assigned to a hash.
-Add a C<eofile> token to the list of tokens. This token should be returned when the end of the file is reached. 
-This would make it easier for the user to detect the end of the file instead of having to check for a false value.
+TODO: 
+1.  Adjust the C<create()> subroutine to use a list which is assigned to a hash.
+    Add a C<eofile> token to the list of parameters. This token should be returned 
+    when the end of the file is reached. 
+    This would make it easier for the user to detect the end of the file instead
+    of having to check for a false value.
+
+2.  Adjust C<next_token()> and C<peek_token()> to return the C<eofile> when end
+    of file is reached.
+
+3.  Let C<create> take its parameters like this:
+      sub create {
+        %params = @_;
+        ...
+      }
+    Call the it like this:
+      my $lexer = Alex->create(
+        filename => 'file.txt',
+        tokens => [...],    # So long tokens is be an arrayref
+        eofile => 50    # Or whatever value the user wants
+        mismatch => sub { ... } # This is optional
+      );
 
 This is the C<create> subroutine. It returns a lexer object. The lexer object
 provides the methods C<next_token> and C<peek_token>. It is expected to be
