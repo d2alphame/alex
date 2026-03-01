@@ -265,13 +265,15 @@ TODO:
         %params = @_;
         ...
       }
-    Call the it like this:
+    Call it like this:
       my $lexer = Alex->create(
         filename => 'file.txt',
         tokens => [...],    # So long tokens is be an arrayref
         eofile => 50    # Or whatever value the user wants
         mismatch => sub { ... } # This is optional
       );
+
+4.  By default, use a token type value of 0 for end-of-file.
 
 This is the C<create> subroutine. It returns a lexer object. The lexer object
 provides the methods C<next_token> and C<peek_token>. It is expected to be
