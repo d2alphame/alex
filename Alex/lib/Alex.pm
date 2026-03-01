@@ -250,6 +250,10 @@ my $lexer_factory = sub {
 
 =pod
 
+TODO: Adjust the C<create()> subroutine to use a list which is assigned to a hash.
+Add a C<eofile> token to the list of tokens. This token should be returned when the end of the file is reached. 
+This would make it easier for the user to detect the end of the file instead of having to check for a false value.
+
 This is the C<create> subroutine. It returns a lexer object. The lexer object
 provides the methods C<next_token> and C<peek_token>. It is expected to be
 called using the arrow object notation.
