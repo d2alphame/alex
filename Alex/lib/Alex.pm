@@ -268,7 +268,7 @@ TODO:
     Call it like this:
       my $lexer = Alex->create(
         filename => 'file.txt',
-        tokens => [...],    # So long tokens is be an arrayref
+        tokens => [...],    # So long tokens is an arrayref
         eofile => 50    # Or whatever value the user wants
         mismatch => sub { ... } # This is optional
       );
@@ -284,29 +284,53 @@ called using the arrow object notation.
 sub create {
   my $class = shift;
 
-  # Do sanity checks here.
+  my $filename;
+  my $tokens;
+  my $eofile;
+  my $mismatch;
   
-  # Ensure that at least 2 parameters were passed, warn if more than 3
-  if(scalar @_ < 2) { 
-    croak "At least two arguments are required - filename and tokens array ref.\n";
-  }
-  elsif(scalar @_ > 3) {
-    carp "Warning: Too many parameters.\n";
+  # Use $will_croak to track whether we should croak or not.
+  # Also accumulate as many error messages as possible in $will_croak so that we can report all them
+  # at once instead of just the first error we encounter.
+  my $will_croak = "";
+
+  if(scalar(@_) % 2) { 
+    {
+      my $l = $_[-1];
+      $will_croak .= "Parameter '" . $l . "' doesn't have a value. Pass name => value pairs.\n";
+    }
   }
 
-  my ($filename, $tokens, $mismatch) = @_;
+  # Extract the parameters into an hash
+  my %config = @_;
 
+  # Do the sanity checks here. We start with filename:
+
+  # filename
+  if($config{filename}){
+    $filename = $config{filename};
+  }
+  else {
+    $will_croak .= "Missing or undefined parameter 'filename'\n";
+  }
   # Ensure that $filename is a simple scalar
   if(ref $filename) { 
-    croak "The filename should be a simple scalar containing the name of the file.\n" }
+    $will_croak .= "The filename should be a simple scalar containing the name of the file.\n" }
 
   # Ensure that the file exists and is a regular file
   unless(-e $filename && -f $filename) {
-    croak "The file $filename does not exist or is not a regular file.\n";
+    $will_croak .= "The file $filename does not exist or is not a regular file.\n";
   }
   
-  # Ensure that $tokens is an array ref
-  croak "The tokens parameter should be an array ref.\n" if(ref $tokens ne 'ARRAY');
+  # tokens
+  if($config{tokens}) {
+    $tokens = $config{tokens};
+    # Ensure that $tokens is an array ref
+    if(ref $tokens ne 'ARRAY') {
+      $will_croak .= "The tokens parameter should be an array ref.\n";
+    }
+  }
+
 
   # Ensure that $mismatch is a code ref if it was passed
   if(defined $mismatch) {
