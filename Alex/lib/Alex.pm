@@ -288,6 +288,7 @@ sub create {
   my $tokens;
   my $eofile;
   my $mismatch;
+  my $file;
   
   # Use $will_croak to track whether we should croak or not.
   # Also accumulate as many error messages as possible in $will_croak so that we can report all them
@@ -304,23 +305,33 @@ sub create {
   # Extract the parameters into an hash
   my %config = @_;
 
-  # Do the sanity checks here. We start with filename:
+  # Do the sanity checks here.
+  eval {
 
-  # filename
-  if($config{filename}){
-    $filename = $config{filename};
+    # -------- Sanity checks for file and filename --------
+    if($config{filename}){
+      $filename = $config{filename};
+    }
+    else {
+      $will_croak .= "Missing or undefined parameter 'filename'\n";
+    }
+    # Ensure that $filename is a simple scalar
+    if(ref $filename) { 
+      $will_croak .= "The filename should be a simple scalar containing the name of the file.\n"
+    }
+    # Ensure that the file exists and is a regular file
+    unless(-e $filename && -f $filename) {
+      $will_croak .= "The file $filename does not exist or is not a regular file.\n";
+    }
+    open $file, '<', $filename or $will_croak .= "Could not open file $filename: $!\n";
   }
-  else {
-    $will_croak .= "Missing or undefined parameter 'filename'\n";
-  }
-  # Ensure that $filename is a simple scalar
-  if(ref $filename) { 
-    $will_croak .= "The filename should be a simple scalar containing the name of the file.\n" }
 
-  # Ensure that the file exists and is a regular file
-  unless(-e $filename && -f $filename) {
-    $will_croak .= "The file $filename does not exist or is not a regular file.\n";
-  }
+
+
+
+
+
+
   
   # tokens
   if($config{tokens}) {
@@ -329,6 +340,9 @@ sub create {
     if(ref $tokens ne 'ARRAY') {
       $will_croak .= "The tokens parameter should be an array ref.\n";
     }
+  }
+  else {
+    $will_croak .= "Missing or undefined parameter 'tokens'\n";
   }
 
 
@@ -349,9 +363,7 @@ sub create {
     };
   }
 
-  croak "The parameter filename must be defined" unless(defined $filename);
-  open my $file, '<', $filename
-    or croak "Could not open file $filename: $!\n";
+
 
   my $line;
   $line = <$file>;   # Read the first line from the file
