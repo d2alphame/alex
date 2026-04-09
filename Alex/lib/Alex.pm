@@ -427,20 +427,20 @@ sub create {
 
 
 
-
 sub next_token {
   my $lexer = shift;
   my $token_ref;
   # Get the array ref of the lexer's token buffer.
   my $buffer = $lexer->(1);
   if(scalar @$buffer) { $token_ref = shift @$buffer }
-  else                { $token_ref = $lexer->();
-                        return 0 unless $token_ref  }
+  else                { $token_ref = $lexer->(); }
   for(@_){
     return $token_ref if $token_ref->[0] == $_;
   }
   # If we get here, then it means the next token is not any of our expected tokens
 }
+
+
 
 sub peek_token {
   my $lexer = shift;
