@@ -309,7 +309,9 @@ sub create {
   eval {
 
     # -------- Sanity checks for file and filename --------
-    if($config{filename}){
+    # =====================================================
+
+    if($config{filename}) {
       $filename = $config{filename};
     }
     else {
@@ -324,50 +326,57 @@ sub create {
       $will_croak .= "The file $filename does not exist or is not a regular file.\n";
     }
     open $file, '<', $filename or $will_croak .= "Could not open file $filename: $!\n";
-  }
 
+    # -------- Sanity checks for eofile token --------
+    # =================================================
 
+    if(exists($config{eofile}) && defined($config{eofile})) {
+      $eofile = $config{eofile};
+    }
+    else {
+      $eofile = 0;   # Default value for end-of-file token type
+    }
 
+    # -------- Sanity checks for tokens --------
+    # ==========================================
 
+    if($config{tokens}) {
+      $tokens = $config{tokens};
+      # Ensure that $tokens is an array ref
+      if(ref $tokens ne 'ARRAY') {
+        $will_croak .= "The tokens parameter should be an array ref.\n";
+      }
+    }
+    else {
+      $will_croak .= "Missing or undefined parameter 'tokens'\n";
+    }
 
+    # -------- Sanity checks for mismatch handler --------
+    # ====================================================
 
-
-  
-  # tokens
-  if($config{tokens}) {
-    $tokens = $config{tokens};
-    # Ensure that $tokens is an array ref
-    if(ref $tokens ne 'ARRAY') {
-      $will_croak .= "The tokens parameter should be an array ref.\n";
+    if(exists($config{mismatch}) && defined($config{mismatch})) {
+      $will_croak .= "The mismatch parameter should be a code ref if it is present.\n" if(ref $mismatch ne 'CODE');
+      $mismatch = $config{mismatch};
+    }
+    else {
+      # Provide a default mismatch handler
+      $mismatch = sub {
+        my %details = @_;
+        croak <<~ "EOERROR";
+        Error in file $details{filename}
+        On line $details{lineno}, at position $details{position}
+        Unrecognized token $details{char}
+        $details{line}
+        EOERROR
+      };
     }
   }
-  else {
-    $will_croak .= "Missing or undefined parameter 'tokens'\n";
-  }
 
-
-  # Ensure that $mismatch is a code ref if it was passed
-  if(defined $mismatch) {
-    croak "The mismatch parameter should be a code ref.\n" if(ref $mismatch ne 'CODE');
-  }
-  else {
-    # Provide a default mismatch handler
-    $mismatch = sub {
-      my %details = @_;
-      croak <<~ "EOERROR";
-      Error in file $details{filename}
-      On line $details{lineno}, at position $details{position}
-      Unrecognized token $details{char}
-      $details{line}
-      EOERROR
-    };
-  }
-
-
+  croak $will_croak if $will_croak;  # If there were any sanity check errors, report them and die
 
   my $line;
   $line = <$file>;   # Read the first line from the file
-  return 0 unless(defined $line);  # First line being undefined means empty file
+  return [$eofile, ""] unless(defined $line);  # First line being undefined means empty file
 
   return bless sub {
     state @buffer;    # Token buffer for lookahead
@@ -388,7 +397,7 @@ sub create {
       # If we've reached the end of the line, read the next line
       if($line =~ /\G$/gc) {
         $line = <$file>;
-        return 0 unless(defined $line);  # End of file
+        return [$eofile, ""] unless(defined $line);  # End of file
       }
       if($line =~ /\G($_->{pattern})/gc) {
         if($_->{action}) {
