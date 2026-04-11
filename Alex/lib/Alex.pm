@@ -91,7 +91,6 @@ The line of text with the mismatch
 
 =cut
 
-
 my $lexer_factory = sub {
 
   # We need at least 2 parameters. The $filename and the $tokens array
@@ -279,6 +278,16 @@ This is the C<create> subroutine. It returns a lexer object. The lexer object
 provides the methods C<next_token> and C<peek_token>. It is expected to be
 called using the arrow object notation.
 
+Each token passed in the C<tokens> array ref should be a hash ref with the following keys:
+  {
+    pattern => qr/pattern/,   # The regex pattern to match the token
+    action => sub { ... },    # Optional. A code ref that runs when the token is matched. It should return a true value to accept the match or a false value to reject it.
+    type => $a_value          # The value to return when this token is matched and accepted by the action (if present)
+    name => "token_name"      # Optional. Useful for error reporting. It is recommended to have this.
+  }
+
+  name => "token_name" would be useful for debugging and error reporting. For example, the lexer could report the following error:
+  "Expected token 'token_name' but got 'actual_token' instead on line 5 of file.txt"
 =cut
 
 sub create {
