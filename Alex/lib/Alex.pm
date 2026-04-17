@@ -287,7 +287,8 @@ Each token passed in the C<tokens> array ref should be a hash ref with the follo
   }
 
   name => "token_name" would be useful for debugging and error reporting. For example, the lexer could report the following error:
-  "Expected token 'token_name' but got 'actual_token' instead on line 5 of file.txt"
+  "Expected token 'token_name' but got 'actual_token' instead on line x of some_file.txt"
+
 =cut
 
 sub create {
@@ -447,6 +448,7 @@ sub next_token {
     return $token_ref if $token_ref->[0] == $_;
   }
   # If we get here, then it means the next token is not any of our expected tokens
+  croak "Unexpected token"; # Need to improve this error message by including the actual token and the expected tokens
 }
 
 
@@ -467,6 +469,7 @@ sub peek_token {
   }
   # If we get here, then it means the next token is not a token we're expecting to
   # get when we look ahead
+  croak "Unexpected token"; # Need to improve this error message by including the actual token and the expected tokens
 }
 
 
