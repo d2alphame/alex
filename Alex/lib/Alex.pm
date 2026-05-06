@@ -380,7 +380,7 @@ sub create {
         EOERROR
       };
     }
-  }
+  };
 
   croak $will_croak if $will_croak;  # If there were any sanity check errors, report them and die
 
