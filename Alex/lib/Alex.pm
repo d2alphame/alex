@@ -171,8 +171,8 @@ sub alex {
               next;
             }
           }
+          next if($token->{ignore});  # Don't emit tokens that have ignore.
           $invalid_count = 0; # Reset invalid count for every valid token.
-          return if($token->{ignore});  # Don't emit tokens that have ignore.
           push @$buffer, {
             type     => $token->{type},
             name     => $token->{name},
@@ -226,7 +226,7 @@ sub alex_next {
   }
   
   # If the buffer is empty, call the lexer to get a token
-  $lexer->() unless(@$buffer);
+  $lexer->() unless(scalar @$buffer);
   my $token = shift @$buffer;
   return $token unless(@_); # If no expected tokens were provided, just return the next token
   for(@_) {
@@ -322,7 +322,17 @@ sub import {
             croak "Error: Terminated due to too many invalid tokens.\n";
           }
           if($found->{type} == lx_invalid) {
-            $msg .= "Expected: " . join ", ", map { s/^lx_// ; $_ } @_ ;
+            my $pointer = " " x ($found->{position} - 1);
+            $pointer .= "^";
+            say "Error in file $found->{file}";
+            say "Expected: " . join ", ", map { s/^lx_// ; $_ } @_ ;
+            say <<~"error-doc";
+            On line $found->{lineno}, position $found->{position}.
+
+            $found->{line}
+            $pointer
+
+            error-doc
           }
         };
 
