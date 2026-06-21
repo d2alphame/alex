@@ -60,7 +60,8 @@ sub alex {
     text     => undef,
     lineno   => undef,
     position => undef,
-    line     => undef
+    line     => undef,
+    file     => $filename
   };
 
   my $sofile = {
@@ -69,7 +70,8 @@ sub alex {
     text     => "",
     lineno   => 1,
     position => 0,
-    line     => undef
+    line     => undef,
+    file     => $filename
   };
 
   my $abort = {
@@ -78,7 +80,8 @@ sub alex {
     text     => undef,
     lineno   => undef,
     position => undef,
-    line     => undef
+    line     => undef,
+    file     => $filename
   };
 
   # Don't emit these tokens by default. This is configurable 
@@ -130,7 +133,8 @@ sub alex {
             text     => "",
             lineno   => $.,
             position => 0,
-            line     => $line
+            line     => $line,
+            file     => $filename
           }
         }
       }
@@ -145,7 +149,8 @@ sub alex {
             text     => "\n",
             lineno   => $.,
             position => pos($line),
-            line     => $line 
+            line     => $line,
+            file     => $filename
           }
         }
         $line = <$file> ;
@@ -173,7 +178,8 @@ sub alex {
             text     => $match,
             lineno   => $.,
             position => $pos,
-            line     => $line
+            line     => $line,
+            file     => $filename
           };
           return;
         }
@@ -187,7 +193,8 @@ sub alex {
         text     => $match,
         lineno   => $.,
         position => pos($line),
-        line     => $line
+        line     => $line,
+        file     => $filename
       };
       ++$invalid_count;
       if($invalid_count == $threshold){
@@ -213,7 +220,7 @@ sub alex_next {
   my $unexpected;
   {
     no strict 'refs';
-    my $caller = caller; 
+    my $caller = caller;
     $unexpected = *{"$caller" . "::__alex_unexpected__"};
   }
   
@@ -224,15 +231,8 @@ sub alex_next {
   for(@_) {
     return $token if($_ == $token->{type});
   }
-  $unexpected->($token, @_); # Notify by calling the 'unexpected()' callback, which is expected to 'die()'
-  return {
-    type     => lx_abort,
-    name     => "abort",
-    text     => undef,
-    lineno   => undef,
-    position => undef,
-    line     => undef
-  };
+  $unexpected->($token, @_); # Notify by calling the 'unexpected()' callback
+  return $token;
 }
 
 
@@ -315,13 +315,13 @@ sub import {
         $emit       = $params { emit       } // [];
         $threshold  = $params { threshold  } // 6;
         $unexpected = $params { unexpected } // sub {
-          my $msg;
+          my $msg = "";
           my $found = shift;
           if($found->{type} == lx_abort) {
             croak "Error: Terminated due to too many invalid tokens.\n";
           }
           if($found->{type} == lx_invalid) {
-            $msg = "Found invalid token "
+            $msg .= "Expected: " . join ", ", map { /^lx_// ; $_ } @_ ;
           }
         };
 
