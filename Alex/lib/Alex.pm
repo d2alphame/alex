@@ -172,6 +172,7 @@ sub alex {
             }
           }
           $invalid_count = 0; # Reset invalid count for every valid token.
+          return if($token->{ignore});  # Don't emit tokens that have ignore.
           push @$buffer, {
             type     => $token->{type},
             name     => $token->{name},
@@ -321,7 +322,7 @@ sub import {
             croak "Error: Terminated due to too many invalid tokens.\n";
           }
           if($found->{type} == lx_invalid) {
-            $msg .= "Expected: " . join ", ", map { /^lx_// ; $_ } @_ ;
+            $msg .= "Expected: " . join ", ", map { s/^lx_// ; $_ } @_ ;
           }
         };
 
