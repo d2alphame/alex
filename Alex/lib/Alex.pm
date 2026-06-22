@@ -53,6 +53,7 @@ sub alex {
   my $emit      = $params { emit      };
   my $threshold = $params { threshold };
   my $tokens    = $params { tokens    };
+  my $aggregate = $params { aggregate };
 
   my $eofile = {
     type     => lx_eofile,
@@ -106,7 +107,8 @@ sub alex {
 
   return bless sub { 
 
-    state $invalid_count = 0;
+    state $invalid_count   = 0;
+    state $aggregate_count = 0;
 
     # Make eofile sticky. If we get eofile at any point, return eofile from then on
     state $got_eofile = 0;
@@ -123,7 +125,6 @@ sub alex {
     }
 
     while(defined $line) {
-      # At the beginning of the line, pos $line would be equal to 0
       unless(pos $line) {
         if($emit_soline) {
           $invalid_count = 0; # Reset invalid count for every valid token.
@@ -199,8 +200,9 @@ sub alex {
         line     => $line,
         file     => $filename
       };
+      ++$aggregate_count;
       ++$invalid_count;
-      if($invalid_count == $threshold){
+      if($invalid_count == $threshold || $aggregate_count == $aggregate){
         push @$buffer, $abort;
         $got_abort = 1;
       }
@@ -355,6 +357,7 @@ sub import {
                 buffer    => $buffer,
                 emit      => $emit,
                 threshold => $threshold,
+                aggregate => $aggregate,
                 tokens    => $tokens;
       }
     };
