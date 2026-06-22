@@ -171,14 +171,16 @@ sub alex {
               next;
             }
           }
+
           next if($token->{ignore});  # Don't emit tokens that have ignore.
           $invalid_count = 0; # Reset invalid count for every valid token.
+          my $p = defined $pos ? $pos : 1;
           push @$buffer, {
             type     => $token->{type},
             name     => $token->{name},
             text     => $match,
             lineno   => $.,
-            position => $pos,
+            position => $p,
             line     => $line,
             file     => $filename
           };
@@ -229,9 +231,11 @@ sub alex_next {
   $lexer->() unless(scalar @$buffer);
   my $token = shift @$buffer;
   return $token unless(@_); # If no expected tokens were provided, just return the next token
+
   for(@_) {
     return $token if($_ == $token->{type});
   }
+
   $unexpected->($token, @_); # Notify by calling the 'unexpected()' callback
   return $token;
 }
@@ -300,6 +304,8 @@ sub import {
      *{"$caller" . "::lx_" . $special_tokens->[$i]} = sub () { $k };  # Constant sub routines for the special token types
     }
 
+    push @names, @$special_tokens;
+
     # Make the names token Readonly and add to caller's namespace
     Readonly::Array @names => @names;
     *{"$caller" . "::AlexTokenNames"} = \@names;
@@ -316,24 +322,22 @@ sub import {
         $emit       = $params { emit       } // [];
         $threshold  = $params { threshold  } // 6;
         $unexpected = $params { unexpected } // sub {
-          my $msg = "";
           my $found = shift;
           if($found->{type} == lx_abort) {
             croak "Error: Terminated due to too many invalid tokens.\n";
           }
-          if($found->{type} == lx_invalid) {
-            my $pointer = " " x ($found->{position} - 1);
-            $pointer .= "^";
-            say "Error in file $found->{file}";
-            say "Expected: " . join ", ", map { s/^lx_// ; $_ } @_ ;
-            say <<~"error-doc";
-            On line $found->{lineno}, position $found->{position}.
+
+          my $pointer = " " x ($found->{position} - 1);
+          $pointer .= "^";
+          say "\nError in file $found->{file}";
+          say "Expected: " . join ", ", map { $names[$_] } @_ ;
+          say <<~"error-doc";
+            On line $found->{lineno}, position $found->{position}, near $found->{text}
 
             $found->{line}
             $pointer
-
-            error-doc
-          }
+          error-doc
+          
         };
 
         *{"$caller" . "::__alex_unexpected__"} = $unexpected;
