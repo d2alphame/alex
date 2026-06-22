@@ -312,7 +312,8 @@ sub import {
 
     *{"$caller" . "::Alex"} = sub {
       state $emit       = [];
-      state $threshold  = 10;
+      state $threshold  = 5;
+      state $aggregate  = 10;
       state $unexpected = sub { "Custom handler" };
       my %params;
 
@@ -320,7 +321,8 @@ sub import {
       unless(defined wantarray) {
         %params     = @_;
         $emit       = $params { emit       } // [];
-        $threshold  = $params { threshold  } // 6;
+        $threshold  = $params { threshold  } // 5;
+        $aggregate  = $params { aggregate  } // 10;
         $unexpected = $params { unexpected } // sub {
           my $found = shift;
           if($found->{type} == lx_abort) {
