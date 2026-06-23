@@ -246,16 +246,27 @@ sub alex_next {
 sub alex_peek {
   my $lexer      = shift;
   my $buffer     = shift;
-  my $k = shift;
-  $k ||= 1;
+  my $k          = shift;
 
-  push @$buffer, $lexer->() while(@$buffer < $k);
+  carp "Cannot lookahead more than 4096 tokens.\n" if($k > 4096);
+  $k ||= 1;
+  
+  $lexer->() while(@$buffer < $k);
   return $buffer->[$k - 1];
 }
 
 
 sub alex_scan {
-
+  my $lexer  = shift;
+  my $buffer = shift;
+  my $token  = shift;
+  $lexer->() until(@$buffer == 4096);  # Fill the buffer up to 4096
+  for my $i(0.. scalar @$buffer) {
+    if($buffer->[$i]{type} == $token) {
+      return $i + 1;
+    }
+  }
+  return 0;
 }
 
 
@@ -368,10 +379,12 @@ sub import {
     return <<~"EOAlex";
     {
       my \@__alex_buffer__;
+      my \@__alex_history__;
       my \$__lexer__ = Alex($filename, \\\@__alex_buffer__);
       my sub alex_next { my \$t = \$__lexer__->alex_next(\\\@__alex_buffer__, \@_) ; return \$t }
       my sub alex_peek { my \$t = \$__lexer__->alex_peek(\\\@__alex_buffer__, \@_) ; return \$t }
       my sub alex_fill { my \$t = \$__lexer__->alex_fill(\\\@__alex_buffer__, \@_) ; return \$t }
+      my sub alex_scan { my \$k = \$__lexer__->alex_scan(\\\@__alex_buffer__, \@_) ; return \$k }
       $block
     }
     EOAlex
