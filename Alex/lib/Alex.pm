@@ -222,7 +222,10 @@ sub alex_next {
 
   my $lexer      = shift;
   my $buffer     = shift;
+  my $history    = shift;
   my $unexpected;
+
+  shift @$history while(@$history > 4096);
   {
     no strict 'refs';
     my $caller = caller;
@@ -232,13 +235,20 @@ sub alex_next {
   # If the buffer is empty, call the lexer to get a token
   $lexer->() unless(scalar @$buffer);
   my $token = shift @$buffer;
-  return $token unless(@_); # If no expected tokens were provided, just return the next token
+  unless(@_) {
+    push @$history, $token;     # Put the token in history before returning it
+    return $token               # If no expected tokens were provided, just return the next token
+  }
 
   for(@_) {
-    return $token if($_ == $token->{type});
+    if($_ == $token->{type}) {
+      push @$history, $token;
+      return $token 
+    }
   }
 
   $unexpected->($token, @_); # Notify by calling the 'unexpected()' callback
+  push @$history, $token;
   return $token;
 }
 
@@ -381,7 +391,7 @@ sub import {
       my \@__alex_buffer__;
       my \@__alex_history__;
       my \$__lexer__ = Alex($filename, \\\@__alex_buffer__);
-      my sub alex_next { my \$t = \$__lexer__->alex_next(\\\@__alex_buffer__, \@_) ; return \$t }
+      my sub alex_next { my \$t = \$__lexer__->alex_next(\\\@__alex_buffer__, \\\@__alex_history__, \@_) ; return \$t }
       my sub alex_peek { my \$t = \$__lexer__->alex_peek(\\\@__alex_buffer__, \@_) ; return \$t }
       my sub alex_fill { my \$t = \$__lexer__->alex_fill(\\\@__alex_buffer__, \@_) ; return \$t }
       my sub alex_scan { my \$k = \$__lexer__->alex_scan(\\\@__alex_buffer__, \@_) ; return \$k }
