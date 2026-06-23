@@ -1,368 +1,404 @@
 package Alex;
 
-use 5.030000;
+use v5.34;
 use strict;
 use warnings;
-use Carp;
 
-our @ISA = qw();
-our $VERSION = '0.01';
+use Carp;
+use Readonly;
+use Keyword::Declare;
 
 
 =pod
 
-$lexer_factory, here, is an anonymous subroutine which is a factory for
-producing lexers.
+Each output match is a hash ref with the following structure
+{
 
-=head1 Parameters
+  type => integer # The type of the token that matched
+  name => string  # The name of the token that matched
+  text => string  # The text or content that matched
+  lineno => integer # Line number where the match was found. Useful for error reporting
+  position => integer # The character position within the line, where the match was found. Useful for error reporting
+  line => string # The line of text in which the match was found. Useful for error reporting
 
-=over
-
-=item C<$filename> Scalar. Name of the file to parse
-
-=item C<$tokens> Array of Hash refs. The hashes describe the tokens
-
-=item C<$mismatch> Code ref. This runs whenever there's a mismatch
-
-=back
-
-=head1 Return
-
-Returns a lexer as a closure.
-
-=head1 Remarks
-
-Whenever the Lexer is called for a token, one of 2 things could happen. The
-lexer could return a true value which would represent a successfully matched
-token or it could return a false value which means it has come to the end of the
-file.
-
-=head2 The C<$tokens> Parameter
-
-The $tokens parameter is an array ref where each element is a hash ref.
-Each of the hash ref has the following structure:
-
-  {
-    pattern => qr/pattern/,
-    action => sub { ... },
-    value => $a_value
-  }
-
-C<pattern> and C<value> are required but not C<action> .
-The lexer matches C<pattern> and if there is a match, C<action> is called (if
-present).
-If C<action> returns a true value, then C<value> is returned as the value of the
-token.
-The C<action> is passed 2 parameters - the text or characters that
-matched the pattern, and the length of the match
-C<action> should return a true value to accept the match or a false value to
-disregard it as a failed match.
-
-Other items may optionally be added to the hash. The lexer does not do
-anything with them.
-
-=head2 The C<$mismatch> Parameter
-
-The C<$mismatch> parameter is a code ref. It is run whenever there is
-a mismatch.  
-
-=head3 Parameters passed to C<$mismatch>
-
-C<$mismatch> is passed a hash with the following values
-
-=over
-
-=item C<filename>
-The name of the file where the mismatch happened
-
-=item C<lineno>
-The line number on which the mismatch happened
-
-=item C<position>
-The position within the line where the mismatch happened
-
-=item C<token>
-The actual character that could not be matched
-
-=item C<line>
-The line of text with the mismatch
-
-=back
+}
 
 =cut
 
-my $lexer_factory = sub {
-
-  # We need at least 2 parameters. The $filename and the $tokens array
-  # ref
-  my $params_len = scalar @_;
-  if($params_len < 2) {
-    # Croak (and die) if there's less than 2 parameters
-    croak "The lexer requires at least 2 parameters.\n";
+BEGIN {
+  # If you think up any more special tokens, add them to this list
+  Readonly::Array our @special_tokens => qw(
+      eofile
+      sofile
+      eoline
+      soline
+      invalid
+      abort
+    );
+  my $this = __PACKAGE__;
+  {
+    no strict 'refs';
+    for my $i (0 .. $#special_tokens) {
+      *{"$this" . "::lx_" . $special_tokens[$i]} = sub () { $i }
+    }
   }
-  elsif($params_len > 3) {
-    # Issue a warning if there's more than 3 parameters
-    carp "WARNING: Too many parameters.\n";
-  }
+}
+my $special_tokens = \@Alex::special_tokens;
 
-  my ($filename, $tokens, $mismatch) = @_;    # Fetch the parameters
+sub alex {
 
-  # Check that $tokens is an array ref.
-  if(ref $tokens ne 'ARRAY') {
-    croak "The tokens parameter should be an array ref.\n"
-  }
+  my %params    = @_;
+  my $filename  = $params { filename  };
+  my $buffer    = $params { buffer    };
+  my $emit      = $params { emit      };
+  my $threshold = $params { threshold };
+  my $tokens    = $params { tokens    };
+  my $aggregate = $params { aggregate };
 
-  # We provide this _mismatch as default, in case this subroutine was
-  # called without the $mismatch parameter
-  my $_mismatch = sub {
-    my %details = @_;
-    croak <<~ "EOERROR";
-    Error in file $details{filename}
-    On line $details{lineno}, at position $details{position}
-    Unrecognized token $details{char}
-    $details{line}
-    EOERROR
+  my $eofile = {
+    type     => lx_eofile,
+    name     => "end-of-file",
+    text     => undef,
+    lineno   => undef,
+    position => undef,
+    line     => undef,
+    file     => $filename
   };
 
-  # If the $mismatch parameter was passed in, check to ensure that it
-  # is a code ref
-  if($mismatch) {
-    if(ref $mismatch ne 'CODE') {
-      croak "The mismatch parameter should be a code ref.\n"
-    }
+  my $sofile = {
+    type     => lx_sofile,
+    name     => "start-of-file",
+    text     => "",
+    lineno   => 1,
+    position => 0,
+    line     => undef,
+    file     => $filename
+  };
+
+  my $abort = {
+    type     => lx_abort,
+    name     => "abort",
+    text     => undef,
+    lineno   => undef,
+    position => undef,
+    line     => undef,
+    file     => $filename
+  };
+
+  # Don't emit these tokens by default. This is configurable 
+  my $emit_sofile = 0;
+  my $emit_soline = 0;
+  my $emit_eoline = 0;
+
+  for(@$emit) {
+    if($_ == lx_sofile) { $emit_sofile = 1 } ;
+    if($_ == lx_soline) { $emit_soline = 1 } ;
+    if($_ == lx_eoline) { $emit_eoline = 1 } ;
   }
-  else {
-    # If the subroutine was called without the $mismatch parameter, assign
-    # the default $_mismatch which has been defined.
-    $mismatch = $_mismatch;
-  }
 
-  # Check the size of the file. If the file is empty, then wer're done. There's
-  # nothing to do.
-  return 0 unless(-s $filename);
+  unless(-e $filename && -f $filename) { croak "File '$filename' does not exist or is not a regular file" }
+  open my $file, '<', $filename or croak "Could not open file '$filename': $!\n";
 
-  # Open the passed in filename parameter.
-  open(my $file,  '<', $filename)
-    or croak "Could not open $filename: $!\n";
-  
-  my $line = <$file>;   # Read the first line from the file
+  # Getting here means the file opened successfully. So put start-of-file on the buffer
+  push @$buffer, $sofile if($emit_sofile);
 
-  # Return the lexer as a closure.
-  return sub {
+  # Read the first line from the file.
+  my $line = <$file>;
 
-    # Check if the regex has reached the end of a line and read the next
-    # line if so.
-    if($line =~ /\G$/gcx) {
-      return 0 if eof($file);
-      $line = <$file>;    # Read the next line from the file
+  return bless sub { 
 
-      # If we can't read the next line, then we're at the end of the file
-      return 0 unless(defined $line);
+    state $invalid_count   = 0;
+    state $aggregate_count = 0;
+
+    # Make eofile sticky. If we get eofile at any point, return eofile from then on
+    state $got_eofile = 0;
+    if($got_eofile) {
+      push @$buffer, $eofile;
+      return
     }
 
-    # Match tokens
-    for(@$tokens) {
-      # Each token should be represented as a hash ref
-      if(ref $_ ne 'HASH') {
-        croak "Each token should be defined as a hash ref.\n";
-      }
+    # Make abort sticky just like eofile. If we've ever seen 'abort', then push abort
+    state $got_abort = 0;
+    if($got_abort) {
+      push @$buffer, $abort;
+      return
+    }
 
-      # Die if there's no 'pattern' key in a token's hash
-      unless($_->{pattern}) {
-        croak "Missing or undefined 'pattern' key in token's hash.\n";
-      }
-
-      # Die if there's no 'value' key in a token's hash. NOte that this would
-      # also die of $_->{value} is 0 or a false value
-      unless($_->{value}) {
-        croak "Missing or undefined 'value' key in token's hash.\n";
-      }
-
-      # Attempt to match tokens
-      if($line =~ / \G ($_->{pattern}) /gcx) {
-        # If there's a match, first get its length
-        my $len = length $1;
-
-        # Do the action if it's present
-        if($_->{action}) {
-          unless(ref $_->{action} eq 'CODE') {
-            croak "If the action of a token is present, it should be a CODE ref.\n";
+    while(defined $line) {
+      unless(pos $line) {
+        if($emit_soline) {
+          $invalid_count = 0; # Reset invalid count for every valid token.
+          push @$buffer, {
+            type     => lx_soline,
+            name     => "start-of-line",
+            text     => "",
+            lineno   => $.,
+            position => 0,
+            line     => $line,
+            file     => $filename
           }
-          # This is needed so that pos($line) can be reset in case $action ()
-          # returns false.
-          my $prev = pos($line);
-          my $valid = $_->{action}($1, $len);
-
-          # Attempt next token if 'action' returns false
-          unless($valid) { pos($line) =  $prev; next };
         }
-
-        return $_->{value};         # Return the value of the token
-
       }
-
-    }
-
-    # If we ever get here, then the array of tokens has been exhausted
-    # without a match, get the offending character and call $mismatch
-    $line =~ /\G(.)/gcx;
-
-    my $mis = $mismatch->(
-      filename => $filename,
-      lineno => $.,
-      position => pos($line),
-      char => $1,
-      line => $line
-    );
-
-    # Mismatch is expected to `die`. If it doesn't, however, it is expected to
-    # return either a true value or a false value (undefined counts as false).
-    # If it returns a true value, then that value is returned from the lexer
-    # as a valid token. If it returns a false value instead, then we call our
-    # default $_mismatch and die.
-    return $mis if $mis;
-
-    $mis = $_mismatch->(
-      filename => $filename,
-      lineno => $.,
-      position => pos($line),
-      char => $1,
-      line => $line
-    );
-
-  }
-};
-
-
-=pod
-
-This is the C<new()> subroutine. Call it to get yourself a shiny new
-lexer
-
-=head1 Parameters
-
-=over
-
-=item C<$filename> Scalar (I<required>). Name of the file to lex
-
-=item C<$tokens> Array ref (I<required>). Array of Hash refs   
-
-=item C<$mismatch> Code ref (I<optional>). Run when there's a mismatch
-
-=back
-
-=head1 Return
-Returns a closure which can be called to get a token or to look ahead.
-The returned closure is a wrapper around the lexer itself
-
-=cut
-
-sub new {
-
-  # Go get a lexer with parameters passed to us
-  my $lexer = $lexer_factory->(@_);
-  my $tok;
-  my @buffer;             # Token buffer. Used for lookahead
-  my $k;
-
-  # Closure will be returned to the user. This acts as a wrapper for
-  # actual lexer
-  # Call it without parameter to get the next token
-  # Call it with a number to lookahead.
-  return sub {
-
-    # For tracking the number of tokens in the lookahead buffer
-    my $len;
-    
-    # If no parameter was passed, then get next token
-    unless(@_) {
-      # If there's anything in the buffer, then return the first token in the buffer
-      if(@buffer) {
-        $tok = shift @buffer;
-        return $tok;
-      }
-      else {
-        # If the buffer is empty, get the next token from the lexer
-        # and return it
-        return $lexer->();
-      }
-    }
-
-    # Getting here means a parameter was passed into this closure.
-    $k = shift;
-    $len = scalar @buffer;  # Get the number of tokens in the buffer
-
-    
-    # If there isn't enough tokens in the buffer to lookahead, then
-    # fill up the buffer with just enough tokens
-    until($len >= $k) {
-
-      my $t = $lexer->();
-
-      # If the lexer returns a valid token, push it onto the buffer
-      if($t) {
-        push @buffer, $t;
-        $len++; # Keep track of number of tokens on the buffer
+      
+      # Check if the regex has reached the end of the line and push end-of-line if so
+      if($line =~ /\G$/gc) {
+        if($emit_eoline) {
+          $invalid_count = 0;
+          push @$buffer, {
+            type     => lx_eoline,
+            name     => "end-of-line",
+            text     => "\n",
+            lineno   => $.,
+            position => pos($line),
+            line     => $line,
+            file     => $filename
+          }
+        }
+        $line = <$file> ;
         next;
       }
-      else {
-        # The lexer is expected to return a false value if it couldn't
-        # return a token. For example, reaching the end of the file, or
-        # encountering an invalid token
-        return $t;
+
+      # Match tokens.
+      state $pos;
+      my $match;
+      for my $token(@$tokens) {
+        $pos = pos($line);  # Grab current pos before matching. This will be useful later.
+        if($line =~ /\G($token->{pattern})/gc) {
+          $match = $1; my $len = length $1;
+          if($token->{action}){
+            my $accept = $token->{action}($match, $len);
+            unless($accept){
+              pos($line) = $pos; # Don't forget to reset pos in case the action rejects the match.
+              next;
+            }
+          }
+
+          next if($token->{ignore});  # Don't emit tokens that have ignore.
+          $invalid_count = 0; # Reset invalid count for every valid token.
+          my $p = defined $pos ? $pos : 1;
+          push @$buffer, {
+            type     => $token->{type},
+            name     => $token->{name},
+            text     => $match,
+            lineno   => $.,
+            position => $p,
+            line     => $line,
+            file     => $filename
+          };
+          return;
+        }
       }
+      # If we get here, it means we've exhausted the tokens and there's no match.
+      $line =~ /\G(.)/gc;
+      $match = $1; 
+      push @$buffer, {
+        type     => lx_invalid,
+        name     => "invalid-token",
+        text     => $match,
+        lineno   => $.,
+        position => pos($line),
+        line     => $line,
+        file     => $filename
+      };
+      ++$aggregate_count;
+      ++$invalid_count;
+      if($invalid_count == $threshold || $aggregate_count == $aggregate){
+        push @$buffer, $abort;
+        $got_abort = 1;
+      }
+      return
+    }
+    # Getting here means $line is undefined meaning we're at the end of the file
+    $got_eofile = 1;
+    push @$buffer, $eofile;
+    return;
+
+  }, __PACKAGE__;
+}
+
+
+# Receives a list of expected tokens and returns the next token if it's in the list
+sub alex_next {
+
+  my $lexer      = shift;
+  my $buffer     = shift;
+  my $history    = shift;
+  my $unexpected;
+
+  shift @$history while(@$history > 4096);
+  {
+    no strict 'refs';
+    my $caller = caller;
+    $unexpected = *{"$caller" . "::__alex_unexpected__"};
+  }
+  
+  # If the buffer is empty, call the lexer to get a token
+  $lexer->() unless(scalar @$buffer);
+  my $token = shift @$buffer;
+  unless(@_) {
+    push @$history, $token;     # Put the token in history before returning it
+    return $token               # If no expected tokens were provided, just return the next token
+  }
+
+  for(@_) {
+    if($_ == $token->{type}) {
+      push @$history, $token;
+      return $token 
+    }
+  }
+
+  $unexpected->($token, @_); # Notify by calling the 'unexpected()' callback
+  push @$history, $token;
+  return $token;
+}
+
+
+sub alex_peek {
+  my $lexer      = shift;
+  my $buffer     = shift;
+  my $k          = shift;
+
+  carp "Cannot lookahead more than 4096 tokens.\n" if($k > 4096);
+  $k ||= 1;
+  
+  $lexer->() while(@$buffer < $k);
+  return $buffer->[$k - 1];
+}
+
+
+sub alex_scan {
+  my $lexer  = shift;
+  my $buffer = shift;
+  my $token  = shift;
+  $lexer->() until(@$buffer == 4096);  # Fill the buffer up to 4096
+  for my $i(0.. scalar @$buffer) {
+    if($buffer->[$i]{type} == $token) {
+      return $i + 1;
+    }
+  }
+  return 0;
+}
+
+
+sub alex_fill {
+
+  my $lexer  = shift;
+  my $buffer = shift;
+  my $count  = shift;
+
+  $count ||= 5;
+
+  push @$buffer, $lexer->() while(@$buffer < $count);
+  return scalar(@$buffer);
+}
+
+
+sub alex_find {
+
+}
+
+
+sub alex_seq {
+
+}
+
+
+
+sub import {
+
+  my $package  = shift;
+  my $tokens   = shift;
+  my $caller   = caller;
+
+  my $count    = scalar(@$tokens);
+  my @names;
+
+  {
+    no strict 'refs';
+
+    for my $j (0 .. $count - 1) {
+      $tokens->[$j]{type} = $j;
+      *{"$caller" . "::lx_" . $tokens->[$j]{name}} = sub () { $j };  # Create a constant subroutine for each token type
+      push @names, $tokens->[$j]{name};
     }
 
-    # Now that buffer has been filled, we can comfortably look ahead
-    $tok = $buffer[$k - 1];
-    return $tok;
+    for my $i (0 .. @$special_tokens - 1) {
+      my $k = $count + $i;
+     *{"$caller" . "::lx_" . $special_tokens->[$i]} = sub () { $k };  # Constant sub routines for the special token types
+    }
+
+    push @names, @$special_tokens;
+
+    # Make the names token Readonly and add to caller's namespace
+    Readonly::Array @names => @names;
+    *{"$caller" . "::AlexTokenNames"} = \@names;
+
+    *{"$caller" . "::Alex"} = sub {
+      state $emit       = [];
+      state $threshold  = 5;
+      state $aggregate  = 10;
+      state $unexpected = sub { "Custom handler" };
+      my %params;
+
+      # Called in void context means just configure
+      unless(defined wantarray) {
+        %params     = @_;
+        $emit       = $params { emit       } // [];
+        $threshold  = $params { threshold  } // 5;
+        $aggregate  = $params { aggregate  } // 10;
+        $unexpected = $params { unexpected } // sub {
+          my $found = shift;
+          if($found->{type} == lx_abort) {
+            croak "Error: Terminated due to too many invalid tokens.\n";
+          }
+
+          my $pointer = " " x ($found->{position} - 1);
+          $pointer .= "^";
+          say "\nError in file $found->{file}";
+          say "Expected: " . join ", ", map { $names[$_] } @_ ;
+          say <<~"error-doc";
+            On line $found->{lineno}, position $found->{position}, near $found->{text}
+
+            $found->{line}
+            $pointer
+          error-doc
+          
+        };
+
+        *{"$caller" . "::__alex_unexpected__"} = $unexpected;
+        return;
+      }
+      # Called in scalar context means give me a lexer
+      unless(wantarray){
+        %params = @_;
+        my $filename = shift;
+        my $buffer   = shift;
+        return alex
+                filename  => $filename,
+                buffer    => $buffer,
+                emit      => $emit,
+                threshold => $threshold,
+                aggregate => $aggregate,
+                tokens    => $tokens;
+      }
+    };
+  }
+
+  # Grab the 'alex' keyword and process it
+  keyword alex (String $filename, Block $block) {
+    return <<~"EOAlex";
+    {
+      my \@__alex_buffer__;
+      my \@__alex_history__;
+      my \$__lexer__ = Alex($filename, \\\@__alex_buffer__);
+      my sub alex_next { my \$t = \$__lexer__->alex_next(\\\@__alex_buffer__, \\\@__alex_history__, \@_) ; return \$t }
+      my sub alex_peek { my \$t = \$__lexer__->alex_peek(\\\@__alex_buffer__, \@_) ; return \$t }
+      my sub alex_fill { my \$t = \$__lexer__->alex_fill(\\\@__alex_buffer__, \@_) ; return \$t }
+      my sub alex_scan { my \$k = \$__lexer__->alex_scan(\\\@__alex_buffer__, \@_) ; return \$k }
+      $block
+    }
+    EOAlex
   }
 }
 
-1;
-__END__
-# Below is stub documentation for your module. You'd better edit it!
-
-=head1 NAME
-
-Alex - Perl extension for blah blah blah
-
-=head1 SYNOPSIS
-
-  use Alex;
-  blah blah blah
-
-=head1 DESCRIPTION
-
-Stub documentation for Alex, created by h2xs. It looks like the
-author of the extension was negligent enough to leave the stub
-unedited.
-
-Blah blah blah.
-
-
-=head1 SEE ALSO
-
-Mention other useful documentation such as the documentation of
-related modules or operating system documentation (such as man pages
-in UNIX), or any relevant external documentation such as RFCs or
-standards.
-
-If you have a mailing list set up for your module, mention it here.
-
-If you have a web site set up for your module, mention it here.
-
-=head1 AUTHOR
-
-A. U. Thor, E<lt>deji@E<gt>
-
-=head1 COPYRIGHT AND LICENSE
-
-Copyright (C) 2023 by A. U. Thor
-
-This library is free software; you can redistribute it and/or modify
-it under the same terms as Perl itself, either Perl version 5.30.0 or,
-at your option, any later version of Perl 5 you may have available.
-
-
-=cut
+1
